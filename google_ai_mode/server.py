@@ -1,5 +1,6 @@
 """OpenAI-compatible API server for Google AI Mode (pure protocol, no browser)."""
 import json
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -8,32 +9,66 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 import uvicorn
 
-from .protocol import AIModeClient
+from .protocol import AIModeClient, CookiePool
 
 
 CONFIG = {
     "cookies": "",
     "cookie_file": None,
+    "cookies_dir": None,
     "api_keys": [],
     "proxy": None,
+    "min_interval": 6,
+    "cooldown": 180,
+    "_pool": None,
 }
 
 
-def _load_cookies() -> str:
+def _load_cookies_list() -> list:
+    """Load cookies from inline, single file, or directory (multiple accounts)."""
+    result = []
     if CONFIG["cookies"]:
-        return CONFIG["cookies"]
-    f = CONFIG.get("cookie_file")
-    if f:
+        result.append(CONFIG["cookies"].strip())
+    if CONFIG["cookie_file"]:
         try:
-            with open(f) as fh:
-                return fh.read().strip()
+            with open(CONFIG["cookie_file"]) as fh:
+                c = fh.read().strip()
+                if c:
+                    result.append(c)
         except Exception:
             pass
-    return ""
+    if CONFIG["cookies_dir"]:
+        try:
+            for name in sorted(os.listdir(CONFIG["cookies_dir"])):
+                path = os.path.join(CONFIG["cookies_dir"], name)
+                if os.path.isfile(path):
+                    with open(path) as fh:
+                        c = fh.read().strip()
+                        if c:
+                            result.append(c)
+        except Exception:
+            pass
+    return result
+
+
+def _get_pool() -> CookiePool:
+    if CONFIG["_pool"] is None:
+        cookies_list = _load_cookies_list()
+        CONFIG["_pool"] = CookiePool(
+            cookies_list,
+            min_interval=CONFIG["min_interval"],
+            cooldown=CONFIG["cooldown"],
+        )
+    return CONFIG["_pool"]
 
 
 def _make_client() -> AIModeClient:
-    return AIModeClient(cookies=_load_cookies(), proxy=CONFIG.get("proxy"))
+    pool = _get_pool()
+    # Single cookie → no pool (simpler, no throttle contention)
+    if len(pool._entries) <= 1:
+        cookies = _load_cookies_list()[0] if _load_cookies_list() else ""
+        return AIModeClient(cookies=cookies, proxy=CONFIG.get("proxy"))
+    return AIModeClient(cookie_pool=pool, proxy=CONFIG.get("proxy"))
 
 
 @asynccontextmanager
@@ -67,6 +102,14 @@ async def list_models():
             "owned_by": "google",
         }],
     }
+
+
+@app.get("/v1/pool/stats")
+async def pool_stats():
+    """Health stats for the cookie rotation pool."""
+    if CONFIG["_pool"] is None:
+        return {"enabled": False, "reason": "single-cookie mode (no pool)"}
+    return {"enabled": True, "entries": CONFIG["_pool"].stats()}
 
 
 @app.post("/v1/chat/completions")
@@ -178,37 +221,51 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # With cookies file (exported from browser, includes HttpOnly)
+  # Single cookie file
   python -m google_ai_mode --cookie-file cookies.txt
 
-  # Inline cookies
-  python -m google_ai_mode --cookies "NID=...; AEC=..."
+  # Multiple cookie files (rotation pool, mitigates rate limits)
+  python -m google_ai_mode --cookies-dir ./cookies/
 
-  # With API key auth
-  python -m google_ai_mode --api-key sk-mykey
+  # With HTTP proxy for IP rotation
+  python -m google_ai_mode --cookies-dir ./cookies/ --proxy http://proxy:8080
+
+  # Inline cookies + API key auth
+  python -m google_ai_mode --cookies "NID=...; AEC=..." --api-key sk-mykey
 """,
     )
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--host", type=str, default="0.0.0.0")
-    parser.add_argument("--cookie-file", type=str, default=None, help="File containing Google cookies")
-    parser.add_argument("--cookies", type=str, default=None, help="Inline Google cookie string")
+    parser.add_argument("--cookie-file", type=str, default=None, help="Single cookies file")
+    parser.add_argument("--cookies-dir", type=str, default=None, help="Directory of cookie files (one per Google account) for rotation")
+    parser.add_argument("--cookies", type=str, default=None, help="Inline cookie string")
     parser.add_argument("--api-key", type=str, default=None, action="append", help="Allowed API key (repeatable)")
-    parser.add_argument("--proxy", type=str, default=None)
+    parser.add_argument("--proxy", type=str, default=None, help="HTTP/HTTPS proxy URL")
+    parser.add_argument("--min-interval", type=float, default=6.0, help="Min seconds between requests (throttle)")
+    parser.add_argument("--cooldown", type=float, default=180.0, help="Seconds to cool a cookie after HTTP 429")
     args = parser.parse_args()
 
     if args.cookie_file:
         CONFIG["cookie_file"] = args.cookie_file
+    if args.cookies_dir:
+        CONFIG["cookies_dir"] = args.cookies_dir
     if args.cookies:
         CONFIG["cookies"] = args.cookies
     if args.api_key:
         CONFIG["api_keys"] = args.api_key
     if args.proxy:
         CONFIG["proxy"] = args.proxy
+    CONFIG["min_interval"] = args.min_interval
+    CONFIG["cooldown"] = args.cooldown
 
+    n_cookies = len(_load_cookies_list())
     print(f"google-ai-mode v0.2.0 (pure protocol)")
-    print(f"  Listening:  http://{args.host}:{args.port}/v1")
-    print(f"  Cookies:    {'file:' + args.cookie_file if args.cookie_file else ('inline' if args.cookies else 'none (will bootstrap)')}")
-    print(f"  Auth:       {'enabled (' + str(len(args.api_key)) + ' keys)' if args.api_key else 'disabled'}")
+    print(f"  Listening:    http://{args.host}:{args.port}/v1")
+    print(f"  Cookies:      {n_cookies} set(s) " + ("(rotation pool)" if n_cookies > 1 else ""))
+    print(f"  Throttle:     min {args.min_interval}s between requests")
+    print(f"  429 cooldown: {args.cooldown}s")
+    print(f"  Proxy:        {args.proxy or 'none'}")
+    print(f"  Auth:         {'enabled (' + str(len(args.api_key)) + ' keys)' if args.api_key else 'disabled'}")
     print()
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 

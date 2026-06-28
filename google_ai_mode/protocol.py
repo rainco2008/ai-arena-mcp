@@ -5,14 +5,26 @@ Flow:
 2. Extract tokens (srtst, xsrf_folif, xsrf_folwr, garc, lro_token, ei) from data-* attributes
 3. GET /async/folwr?<tokens>&q=<question> → streaming HTML response with AI answer
 4. Parse text from HTML chunks
+
+Rate-limit handling: Google serves HTTP 429 + CAPTCHA when it detects burst
+patterns from one IP/cookie. CookiePool rotates multiple cookie sets, marks
+unhealthy ones for cooldown, and throttles request spacing.
 """
 import re
 import ssl
 import time
+import random
+import threading
 import urllib.request
 import urllib.parse
 import urllib.error
 from html.parser import HTMLParser
+
+try:
+    from curl_cffi import requests as _cf_requests
+    _HAS_CFFI = True
+except ImportError:
+    _HAS_CFFI = False
 
 
 _SEARCH_URL = "https://www.google.com.hk/search?q={q}&hl=en&gl=us&udm=50&aep=1&ntc=1"
@@ -82,10 +94,11 @@ def _update_cookies(existing, set_cookie_headers):
     return "; ".join(f"{k}={v}" for k, v in cookie_map.items())
 
 
-def _fetch(url, cookies, referer=None, max_redirects=5, cookie_sink=None):
+def _fetch(url, cookies, referer=None, max_redirects=5, cookie_sink=None, proxy=None):
     """Fetch a URL with cookies, following redirects manually.
 
-    cookie_sink: optional dict with 'cookies' key to receive updated cookies.
+    Prefers curl_cffi (Chrome TLS/HTTP2 fingerprint) when available — it
+    triggers Google's anti-bot far less than urllib. Falls back to urllib.
     """
     headers = {
         "User-Agent": _UA,
@@ -103,13 +116,42 @@ def _fetch(url, cookies, referer=None, max_redirects=5, cookie_sink=None):
     if referer:
         headers["Referer"] = referer
 
+    if _HAS_CFFI:
+        return _fetch_cffi(url, headers, cookie_sink, cookies, proxy)
+    return _fetch_urllib(url, headers, cookie_sink, cookies, proxy, max_redirects)
+
+
+def _fetch_cffi(url, headers, cookie_sink, cookies, proxy):
+    """curl_cffi path — impersonates Chrome TLS/HTTP2 fingerprint."""
+    proxies = {"http": proxy, "https": proxy} if proxy else None
+    resp = _cf_requests.get(
+        url, headers=headers, proxies=proxies,
+        impersonate="chrome", timeout=30, allow_redirects=True,
+    )
+    if resp.status_code == 429:
+        raise urllib.error.HTTPError(url, 429, "Too Many Requests", resp.headers, None)
+    body = resp.text
+    set_cookies = resp.headers.get_list("set-cookie") if hasattr(resp.headers, "get_list") else []
+    if set_cookies and cookie_sink is not None:
+        cookie_sink["cookies"] = _update_cookies(cookie_sink.get("cookies", cookies), set_cookies)
+    return body, resp
+
+
+def _fetch_urllib(url, headers, cookie_sink, cookies, proxy, max_redirects):
+    """urllib fallback path."""
     ctx = _ssl_ctx()
+    if proxy:
+        proxy_handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+        https_handler = urllib.request.HTTPSHandler(context=ctx)
+        opener = urllib.request.build_opener(proxy_handler, https_handler)
+    else:
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
+
     body = ""
     resp = None
     for _ in range(max_redirects):
         req = urllib.request.Request(url, headers=headers, method="GET")
-        resp = urllib.request.urlopen(req, context=ctx, timeout=30)
-        # Capture Set-Cookie to refresh tokens
+        resp = opener.open(req, timeout=30)
         set_cookies = resp.headers.get_all("Set-Cookie") or []
         if set_cookies and cookie_sink is not None:
             cookie_sink["cookies"] = _update_cookies(cookie_sink.get("cookies", cookies), set_cookies)
@@ -279,30 +321,132 @@ def parse_response_text(html_chunk):
     return text
 
 
-class AIModeClient:
-    """Pure-protocol AI Mode client."""
+class CookiePool:
+    """Rotate multiple cookie sets to distribute rate-limit pressure.
 
-    def __init__(self, cookies=None, proxy=None):
+    Each entry tracks health: on HTTP 429 the cookie enters a cooldown
+    period during which it is skipped. A global minimum interval between
+    requests (plus jitter) makes traffic look less bursty.
+    """
+
+    def __init__(self, cookies_list=None, min_interval=6, cooldown=180):
+        self._lock = threading.Lock()
+        self.min_interval = min_interval
+        self.cooldown = cooldown
+        now = time.time()
+        self._entries = []
+        for c in (cookies_list or []):
+            self._entries.append({
+                "cookies": c,
+                "available_at": now,
+                "uses": 0,
+                "fails": 0,
+            })
+        self._last_request = 0.0
+
+    def acquire(self):
+        """Block until a healthy cookie is available, return (index, cookies)."""
+        while True:
+            with self._lock:
+                now = time.time()
+                # Global spacing between requests regardless of cookie
+                wait_global = self._last_request + self.min_interval - now
+                candidates = [e for e in self._entries if e["available_at"] <= now]
+                if candidates and wait_global <= 0:
+                    # Pick least-recently-failed, then least-used
+                    candidates.sort(key=lambda e: (e["fails"], e["uses"]))
+                    entry = candidates[0]
+                    entry["uses"] += 1
+                    self._last_request = now
+                    idx = self._entries.index(entry)
+                    return idx, entry["cookies"]
+                wait = max(wait_global, 0.5)
+                if not candidates:
+                    # All cooling down — wait for the earliest available
+                    next_avail = min(e["available_at"] for e in self._entries)
+                    wait = max(next_avail - now, 0.5)
+            time.sleep(wait + random.uniform(0, 1.0))
+
+    def mark_ok(self, idx, updated_cookies=None):
+        with self._lock:
+            e = self._entries[idx]
+            if updated_cookies:
+                e["cookies"] = updated_cookies
+
+    def mark_429(self, idx):
+        with self._lock:
+            e = self._entries[idx]
+            e["fails"] += 1
+            e["available_at"] = time.time() + self.cooldown
+            # Exponential cooldown on repeated fails
+            e["available_at"] += min(e["fails"] - 1, 5) * 60
+
+    def stats(self):
+        with self._lock:
+            now = time.time()
+            return [
+                {
+                    "index": i,
+                    "uses": e["uses"],
+                    "fails": e["fails"],
+                    "cooldown_remaining": max(0, int(e["available_at"] - now)),
+                }
+                for i, e in enumerate(self._entries)
+            ]
+
+
+class AIModeClient:
+    """Pure-protocol AI Mode client.
+
+    Single-cookie usage: pass `cookies=...`.
+    Multi-cookie rotation: pass `cookie_pool=CookiePool([...])`.
+    """
+
+    def __init__(self, cookies=None, proxy=None, cookie_pool=None):
         self.cookies = cookies or ""
         self.proxy = proxy
+        self.cookie_pool = cookie_pool
+        self._pool_idx = None
         self.tokens = None
         self.sca_esv = ""
         self.ved = ""
         self.session_query = ""
         self.page_html = None
 
+    def _get_cookies(self):
+        if self.cookie_pool:
+            idx, cookies = self.cookie_pool.acquire()
+            self._pool_idx = idx
+            self.cookies = cookies
+            return cookies
+        if not self.cookies:
+            self.cookies = get_cookies()
+        return self.cookies
+
+    def _report(self, ok, updated_cookies=None):
+        if self.cookie_pool and self._pool_idx is not None:
+            if ok:
+                self.cookie_pool.mark_ok(self._pool_idx, updated_cookies)
+            else:
+                self.cookie_pool.mark_429(self._pool_idx)
+
     def init_session(self, query="hello"):
         """Load the AI Mode page for a query, extract tokens.
 
         The query binds the session — folwr must use the SAME query.
         """
-        if not self.cookies:
-            self.cookies = get_cookies()
+        self._get_cookies()
 
         url = _SEARCH_URL.format(q=urllib.parse.quote(query))
         sink = {"cookies": self.cookies}
-        html, _ = _fetch(url, self.cookies, cookie_sink=sink)
+        try:
+            html, _ = _fetch(url, self.cookies, cookie_sink=sink, proxy=self.proxy)
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                self._report(False)
+            raise
         self.cookies = sink["cookies"]
+        self._report(True, sink["cookies"])
         self.page_html = html
         self.tokens = extract_tokens(html)
         self.sca_esv = extract_sca_esv(html)
@@ -314,7 +458,8 @@ class AIModeClient:
         """Ask a question, return full response text.
 
         Each question starts a fresh session (new page load + folwr).
-        Retries on rate-limit (429) with exponential backoff.
+        Retries on rate-limit (429): with a cookie pool, the next attempt
+        picks a different cookie; otherwise exponential backoff.
         """
         last_err = None
         for attempt in range(retries):
@@ -322,12 +467,12 @@ class AIModeClient:
                 self.init_session(question)
                 url = build_folwr_url(self.tokens, question, self.sca_esv, self.ved)
                 sink = {"cookies": self.cookies}
-                body, _ = _fetch(url, self.cookies, referer="https://www.google.com.hk/", cookie_sink=sink)
+                body, _ = _fetch(url, self.cookies, referer="https://www.google.com.hk/", cookie_sink=sink, proxy=self.proxy)
                 self.cookies = sink["cookies"]
+                self._report(True, sink["cookies"])
                 text = parse_response_text(body)
                 if text:
                     return text
-                # Empty but no error — retry once
                 if attempt < retries - 1:
                     time.sleep(2 * (attempt + 1))
                     continue
@@ -335,8 +480,11 @@ class AIModeClient:
             except urllib.error.HTTPError as e:
                 last_err = e
                 if e.code == 429:
-                    wait = 5 * (attempt + 1)
-                    time.sleep(wait)
+                    # pool already marked this cookie via init_session or here
+                    self._report(False)
+                    if self.cookie_pool:
+                        continue  # next attempt uses a different cookie
+                    time.sleep(5 * (attempt + 1))
                     continue
                 raise
         if last_err:
