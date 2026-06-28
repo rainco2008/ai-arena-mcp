@@ -102,6 +102,43 @@ Each request is stateless: a fresh page load + folwr per query. Token lifetime i
 - **Class-name fragility**: answer extraction relies on Google's CSS classes (`n6owBd`, `pTRUV`); Google may rename them.
 - **No conversation memory**: each request is independent (fresh session).
 
+## Rate Limits (important)
+
+Google enforces **per-IP** limits on the search endpoint — AI Mode is stricter than regular search because of compute cost. Burst testing (~10+ requests/min) triggers HTTP 429 + CAPTCHA that can block an IP for hours.
+
+### Mitigation (all built-in)
+
+| Layer | Flag | What it does |
+|-------|------|--------------|
+| **Cookie rotation** | `--cookies-dir ./cookies/` | One file per Google account; rotates on each request, cools down on 429 |
+| **Throttle** | `--min-interval 6` | Min seconds between requests + jitter |
+| **Chrome fingerprint** | (automatic) | Uses `curl_cffi` to impersonate Chrome TLS/HTTP2 — triggers anti-bot far less than urllib |
+| **Proxy / IP rotation** | `--proxy http://host:port` | The only way past a hard IP block. Rotate proxies for production volume |
+| **429 backoff** | `--cooldown 180` | Failed cookies cool down with exponential backoff |
+
+### Recommended deployment
+
+```bash
+# Production: multiple accounts + proxy pool
+python -m google_ai_mode \
+  --cookies-dir ./accounts/ \
+  --proxy http://your-proxy-pool:8080 \
+  --min-interval 8 \
+  --api-key sk-yoursecret
+```
+
+Monitor pool health:
+```bash
+curl http://localhost:8080/v1/pool/stats
+```
+
+### If you get 429 now
+
+You burst-tested and your IP is cooling off. Options:
+1. Wait (can be hours for AI Mode endpoint)
+2. Switch IP (proxy/VPN)
+3. Use rotation pool from the start to avoid bursting one cookie/IP
+
 ## Docker
 
 ```bash
