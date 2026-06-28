@@ -187,6 +187,12 @@ def extract_tokens(html):
     - A div with data-srtst/data-garc/data-lro-*/data-xsrf-*/data-ei
     - A separate div with data-stkp
     """
+    # Detect CAPTCHA / rate-limit / soft-block pages (they have no tokens)
+    if "/sorry/" in html or "id='captcha'" in html or 'id="captcha"' in html:
+        raise urllib.error.HTTPError("captured", 429, "CAPTCHA/rate-limit page", {}, None)
+    if len(html) < 5000 and "Enable JavaScript" in html:
+        raise urllib.error.HTTPError("captured", 429, "JS-required shell (soft block)", {}, None)
+
     tokens = {}
 
     # Main token element
@@ -194,7 +200,7 @@ def extract_tokens(html):
         r'<div([^>]*data-srtst="[^"]*"[^>]*)>', html
     )
     if not token_el_match:
-        raise RuntimeError("Token element not found — cookies may be insufficient")
+        raise urllib.error.HTTPError("captured", 429, "No token element (likely rate-limited)", {}, None)
 
     attrs_str = token_el_match.group(1)
     for attr in _TOKEN_ATTRS:
@@ -208,7 +214,7 @@ def extract_tokens(html):
         tokens["data-stkp"] = stkp_match.group(1)
 
     if "data-srtst" not in tokens:
-        raise RuntimeError("data-srtst not found in token element")
+        raise urllib.error.HTTPError("captured", 429, "data-srtst missing (likely rate-limited)", {}, None)
 
     return tokens
 
