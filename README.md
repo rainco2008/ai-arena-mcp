@@ -1,10 +1,16 @@
 # gemini-search-mcp
 
 <p align="center">
-  <img src="logo.png" width="200" alt="gemini-search-mcp logo">
+  <img src="banner.png" width="700" alt="gemini-search-mcp">
 </p>
 
-MCP server for web search powered by Google AI Mode (Gemini). Free, unlimited, no API key.
+<p align="center">
+  <img src="logo.png" width="120" alt="logo">
+</p>
+
+<p align="center">
+  MCP server for web search powered by Google AI Mode (Gemini). Free, unlimited, no API key.
+</p>
 
 ## What is this
 
