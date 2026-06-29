@@ -108,11 +108,12 @@ class AIModeEngine:
 
     async def ask(self, question: str, timeout_ms: int = 45000) -> str:
         async with self._lock:
+            self._page.set_default_timeout(timeout_ms)
             try:
-                result = await self._page.evaluate(_ASK_JS, question, timeout=timeout_ms)
+                result = await self._page.evaluate(_ASK_JS, question)
             except Exception as e:
                 await self._recover()
-                result = await self._page.evaluate(_ASK_JS, question, timeout=timeout_ms)
+                result = await self._page.evaluate(_ASK_JS, question)
         if isinstance(result, dict):
             if result.get("error"):
                 raise RuntimeError(result["error"])
