@@ -1,5 +1,5 @@
 services:
-  google-ai-mode:
+  gemini-search:
     build: .
     ports:
       - "8080:8080"

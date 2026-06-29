@@ -6,8 +6,6 @@ This gives Chrome TLS fingerprint (no rate limit) without page navigation overhe
 Performance: ~1s/query, 60+ asks/minute sustained, zero 429.
 """
 import asyncio
-import json
-import re
 from playwright.async_api import async_playwright, Page
 
 
@@ -59,6 +57,8 @@ async (q) => {
 }
 """
 
+_GOOGLE_HOME = "https://www.google.com.hk/"
+
 
 class AIModeEngine:
     """Single-page browser engine. All queries run as fetch() inside one tab."""
@@ -68,22 +68,51 @@ class AIModeEngine:
         self._browser = None
         self._page = None
         self._lock = asyncio.Lock()
+        self._cdp_url = None
+        self._headless = True
+        self._channel = "chrome"
 
     async def start(self, cdp_url=None, headless=True, channel="chrome"):
+        self._cdp_url = cdp_url
+        self._headless = headless
+        self._channel = channel
         self._pw = await async_playwright().start()
-        if cdp_url:
-            self._browser = await self._pw.chromium.connect_over_cdp(cdp_url)
+        await self._launch_page()
+
+    async def _launch_page(self):
+        if self._cdp_url:
+            self._browser = await self._pw.chromium.connect_over_cdp(self._cdp_url)
             ctx = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
         else:
-            self._browser = await self._pw.chromium.launch(headless=headless, channel=channel)
+            self._browser = await self._pw.chromium.launch(
+                headless=self._headless, channel=self._channel
+            )
             ctx = await self._browser.new_context()
         self._page = await ctx.new_page()
-        await self._page.goto("https://www.google.com.hk/", wait_until="domcontentloaded")
+        await self._page.goto(_GOOGLE_HOME, wait_until="domcontentloaded")
         await self._page.wait_for_timeout(1000)
+
+    async def _recover(self):
+        """Re-create the browser page after a crash."""
+        try:
+            if self._page and not self._page.is_closed():
+                await self._page.close()
+        except Exception:
+            pass
+        try:
+            if self._browser:
+                await self._browser.close()
+        except Exception:
+            pass
+        await self._launch_page()
 
     async def ask(self, question: str, timeout_ms: int = 45000) -> str:
         async with self._lock:
-            result = await self._page.evaluate(_ASK_JS, question)
+            try:
+                result = await self._page.evaluate(_ASK_JS, question, timeout=timeout_ms)
+            except Exception as e:
+                await self._recover()
+                result = await self._page.evaluate(_ASK_JS, question, timeout=timeout_ms)
         if isinstance(result, dict):
             if result.get("error"):
                 raise RuntimeError(result["error"])
@@ -98,9 +127,15 @@ class AIModeEngine:
 
     async def stop(self):
         if self._page:
-            await self._page.close()
+            try:
+                await self._page.close()
+            except Exception:
+                pass
         if self._browser:
-            await self._browser.close()
+            try:
+                await self._browser.close()
+            except Exception:
+                pass
         if self._pw:
             await self._pw.stop()
 

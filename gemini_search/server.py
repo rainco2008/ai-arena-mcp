@@ -50,7 +50,10 @@ async def chat_completions(request: Request):
         return StreamingResponse(_stream(prompt, cid, created, model), media_type="text/event-stream",
                                  headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 
-    text = await engine.ask(prompt)
+    try:
+        text = await engine.ask(prompt)
+    except Exception as e:
+        return JSONResponse({"error": {"message": str(e), "type": "server_error"}}, status_code=502)
     return {"id": cid, "object": "chat.completion", "created": created, "model": model,
             "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": len(prompt.split()), "completion_tokens": len(text.split()), "total_tokens": len(prompt.split()) + len(text.split())}}

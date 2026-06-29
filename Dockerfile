@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -e . && playwright install chromium --with-deps
 
 EXPOSE 8080
 
-CMD ["python", "-m", "gemini_search", "--port", "8080", "--channel", "chromium"]
+CMD ["python", "-m", "gemini_search", "--port", "8080"]
