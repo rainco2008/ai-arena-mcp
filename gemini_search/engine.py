@@ -89,8 +89,14 @@ class AIModeEngine:
             )
             ctx = await self._browser.new_context()
         self._page = await ctx.new_page()
-        await self._page.goto(_GOOGLE_HOME, wait_until="domcontentloaded")
-        await self._page.wait_for_timeout(1000)
+        # Warmup: visit a normal Google search page so the browser builds
+        # a full cookie session. Without this, fresh browsers get a 91KB
+        # JS-required shell from AI Mode instead of the 360KB token page.
+        await self._page.goto(
+            "https://www.google.com.hk/search?q=hello&hl=en&gl=us",
+            wait_until="networkidle", timeout=30000,
+        )
+        await self._page.wait_for_timeout(2000)
 
     async def _recover(self):
         """Re-create the browser page after a crash."""
