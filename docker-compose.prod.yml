@@ -1,0 +1,44 @@
+services:
+  gemini-search:
+    build: .
+    restart: unless-stopped
+    shm_size: "2gb"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    expose:
+      - "8080"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      BROWSER_CHANNEL: chromium
+      HEADLESS: "1"
+      GEMINI_SEARCH_BROWSER_BACKEND: ${GEMINI_SEARCH_BROWSER_BACKEND:-playwright}
+      GEMINI_SEARCH_USER_DATA_DIR: /data/chrome-profile
+      GEMINI_SEARCH_CDP_PORT: "19250"
+      GEMINI_SEARCH_PROFILE_ROTATION_SECONDS: ${GEMINI_SEARCH_PROFILE_ROTATION_SECONDS:-0}
+      GEMINI_SEARCH_CHROME_EXTRA_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu"
+      GEMINI_SEARCH_PROXY_SERVER: ${GEMINI_SEARCH_PROXY_SERVER:-}
+    volumes:
+      - chrome-profile:/data/chrome-profile
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - gemini-search
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  chrome-profile:
+  caddy-data:
+  caddy-config:

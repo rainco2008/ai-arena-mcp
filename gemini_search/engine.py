@@ -1,22 +1,18 @@
-"""Lightweight engine for Google AI Mode.
-
-The default backend launches a real Chrome/Chromium subprocess and connects to
-it through the Chrome DevTools Protocol (CDP). An optional
-undetected-chromedriver backend can be enabled when a normal subprocess profile
-is challenged by Google CAPTCHA.
-"""
+"""Lightweight engine for Google AI Mode."""
 from __future__ import annotations
 
 import asyncio
 import json
 import os
-import platform
 import re
+import shlex
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
+
+import httpx
 
 try:
     import websockets
@@ -92,143 +88,52 @@ def _env_or_value(value: Optional[str], *env_names: str) -> Optional[str]:
     return None
 
 
-def _version_sort_key(path: Path) -> tuple[int, ...]:
-    match = re.search(r"(\d+)\.(\d+)\.(\d+)\.(\d+)", str(path))
-    if not match:
-        return ()
-    return tuple(int(part) for part in match.groups())
-
-
-def _existing(paths: list[Path]) -> list[str]:
-    return [str(path) for path in paths if path.is_file()]
-
-
-def _find_chrome(channel: str = "chrome") -> str:
-    """Find a Chrome/Edge/Chromium binary path on the system."""
-    system = platform.system()
-    requested = (channel or "chrome").lower()
-    candidates: list[str] = []
-
-    explicit = _env_or_value(None, "CHROME_PATH", "UC_CHROME_BINARY")
-    if explicit:
-        candidates.append(explicit)
-
-    home = Path.home()
-    if system == "Windows":
-        by_channel: dict[str, list[Path]] = {"chrome": [], "msedge": [], "chromium": []}
-        local_appdata = os.environ.get("LOCALAPPDATA")
-        if local_appdata:
-            cft_root = Path(local_appdata) / "agent-browser-cli" / "chrome-for-testing"
-            by_channel["chrome"].extend(
-                sorted(
-                    cft_root.glob("*/chrome-win64/chrome.exe"),
-                    key=_version_sort_key,
-                    reverse=True,
-                )
-            )
-
-        for key in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
-            base_value = os.environ.get(key)
-            if not base_value:
-                continue
-            base = Path(base_value)
-            by_channel["chrome"].append(base / "Google" / "Chrome" / "Application" / "chrome.exe")
-            by_channel["msedge"].append(base / "Microsoft" / "Edge" / "Application" / "msedge.exe")
-        if requested in by_channel:
-            candidates.extend(_existing(by_channel[requested]))
-        for name, paths in by_channel.items():
-            if name != requested:
-                candidates.extend(_existing(paths))
-        candidates.extend(["chrome.exe", "msedge.exe"])
-    elif system == "Darwin":
-        by_channel = {
-            "chrome": [Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")],
-            "msedge": [Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge")],
-            "chromium": [Path("/Applications/Chromium.app/Contents/MacOS/Chromium")],
-        }
-        if requested in by_channel:
-            candidates.extend(_existing(by_channel[requested]))
-        for name, paths in by_channel.items():
-            if name != requested:
-                candidates.extend(_existing(paths))
-    else:
-        local_chromes: list[Path] = []
-        for root in (
-            home / ".local/share/browser-binaries/puppeteer/chrome",
-            home / ".local/share/browser-binaries/ms-playwright",
-        ):
-            local_chromes.extend(root.glob("**/chrome-linux64/chrome"))
-        candidates.extend(
-            str(path)
-            for path in sorted(local_chromes, key=_version_sort_key, reverse=True)
-        )
-        linux_by_channel = {
-            "chrome": ["google-chrome", "google-chrome-stable", "chrome"],
-            "msedge": ["microsoft-edge", "microsoft-edge-stable", "msedge"],
-            "chromium": ["chromium", "chromium-browser"],
-        }
-        if requested in linux_by_channel:
-            candidates.extend(linux_by_channel[requested])
-        for name, names in linux_by_channel.items():
-            if name != requested:
-                candidates.extend(names)
-
-    seen: set[str] = set()
-    for candidate in candidates:
-        if not candidate or candidate in seen:
-            continue
-        seen.add(candidate)
-        path = Path(candidate).expanduser()
-        if path.is_file() and (system == "Windows" or os.access(path, os.X_OK)):
-            return str(path)
-        found = shutil.which(candidate)
-        if found:
-            return found
-    raise RuntimeError("Chrome/Edge/Chromium not found. Install Chrome or set CHROME_PATH env var.")
-
-
-def _chrome_major_version(binary: str) -> Optional[int]:
-    """Best-effort Chrome major version detection for undetected-chromedriver."""
-    path_match = re.search(r"(?:^|[\\/])(\d+)\.\d+\.\d+\.\d+(?:[\\/]|$)", str(binary))
-    if path_match:
-        return int(path_match.group(1))
-
-    try:
-        cp = subprocess.run(
-            [binary, "--version"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=10,
-        )
-    except Exception:
-        return None
-    text = f"{cp.stdout}\n{cp.stderr}"
-    match = re.search(r"(\d+)\.\d+\.\d+\.\d+", text)
-    return int(match.group(1)) if match else None
+async def _maybe_await(value):
+    if hasattr(value, "__await__"):
+        return await value
+    return value
 
 
 def _normalize_browser_backend(backend: Optional[str]) -> str:
-    value = (backend or "subprocess").strip().lower()
+    value = (backend or "playwright").strip().lower()
     aliases = {
-        "raw": "subprocess",
-        "chrome": "subprocess",
-        "subprocess": "subprocess",
-        "uc": "undetected",
-        "undetected": "undetected",
-        "undetected-chromedriver": "undetected",
+        "http": "request",
+        "requests": "request",
+        "request": "request",
+        "playwright": "playwright",
+        "pw": "playwright",
+        "cloak": "cloakbrowser",
+        "cloakbrowser": "cloakbrowser",
     }
     if value not in aliases:
-        raise ValueError("browser_backend must be 'subprocess' or 'undetected'")
+        raise ValueError(
+            "browser_backend must be one of: request, playwright, cloakbrowser"
+        )
     return aliases[value]
 
 
+def _validate_local_cdp_url(cdp_url: Optional[str]) -> Optional[str]:
+    if not cdp_url:
+        return None
+    parsed = urlparse(cdp_url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("CDP_URL must be an HTTP URL")
+    host = (parsed.hostname or "").lower()
+    allowed_hosts = {"127.0.0.1", "localhost", "::1"}
+    if host not in allowed_hosts:
+        raise ValueError("CDP_URL may only point to a local in-container browser")
+    return cdp_url
+
+
 class AIModeEngine:
-    """Single-tab Chrome engine via raw CDP."""
+    """Single-page AI Mode engine with pluggable browser backends."""
 
     def __init__(self):
-        self._proc = None
-        self._uc_driver = None
+        self._playwright = None
+        self._playwright_browser = None
+        self._playwright_context = None
+        self._playwright_page = None
+        self._http_client = None
         self._ws = None
         self._ws_url = None
         self._page_target = None
@@ -237,7 +142,7 @@ class AIModeEngine:
         self._cdp_url = None
         self._user_data_dir = None
         self._owns_user_data_dir = False
-        self._browser_backend = "subprocess"
+        self._browser_backend = "playwright"
 
     async def start(
         self,
@@ -247,33 +152,33 @@ class AIModeEngine:
         user_data_dir: Optional[str] = None,
         browser_backend: Optional[str] = None,
         proxy_server: Optional[str] = None,
-        chromedriver_path: Optional[str] = None,
     ):
-        """Start Chrome and connect via CDP.
+        """Start or connect to a local browser.
 
-        If cdp_url is provided, connects to an existing Chrome instance.
-        Otherwise launches a browser using the selected backend:
-        - subprocess: plain Chrome/Edge/Chromium with minimal flags.
-        - undetected: undetected-chromedriver + CDP, useful for CAPTCHA probes.
+        If cdp_url is provided, it must point to a local in-container Chrome instance.
+        - request: direct HTTP requests without a browser.
+        - playwright: Playwright-controlled browser using a local browser binary.
+        - cloakbrowser: optional CloakBrowser wrapper with Playwright-like API.
 
         user_data_dir can be supplied to persist cookies across runs. When it is
         omitted, a temporary profile is created and deleted on stop.
         """
-        self._cdp_url = cdp_url
+        self._cdp_url = _validate_local_cdp_url(cdp_url)
         self._browser_backend = _normalize_browser_backend(
             _env_or_value(browser_backend, "GEMINI_SEARCH_BROWSER_BACKEND")
         )
         try:
-            if cdp_url:
-                await self._connect_cdp(cdp_url)
+            if self._browser_backend == "request":
+                await self._start_request_backend()
+            elif self._cdp_url:
+                await self._connect_cdp(self._cdp_url)
             else:
-                await self._launch_chrome(
+                await self._launch_browser(
                     headless=headless,
                     channel=channel,
                     user_data_dir=user_data_dir,
                     browser_backend=self._browser_backend,
                     proxy_server=proxy_server,
-                    chromedriver_path=chromedriver_path,
                 )
             await self._warmup()
         except Exception:
@@ -291,114 +196,130 @@ class AIModeEngine:
             self._owns_user_data_dir = True
         return self._user_data_dir
 
-    async def _launch_chrome(
+    async def _launch_browser(
         self,
         headless=True,
         channel="chrome",
         user_data_dir: Optional[str] = None,
         browser_backend: Optional[str] = None,
         proxy_server: Optional[str] = None,
-        chromedriver_path: Optional[str] = None,
     ):
         backend = _normalize_browser_backend(browser_backend)
-        if backend == "undetected":
-            await self._launch_undetected_chrome(
+        if backend == "playwright":
+            await self._launch_playwright_browser(
                 headless=headless,
                 channel=channel,
                 user_data_dir=user_data_dir,
                 proxy_server=proxy_server,
-                chromedriver_path=chromedriver_path,
             )
             return
-        await self._launch_subprocess_chrome(
-            headless=headless,
-            channel=channel,
-            user_data_dir=user_data_dir,
-            proxy_server=proxy_server,
+        if backend == "cloakbrowser":
+            await self._launch_cloakbrowser(
+                headless=headless,
+                user_data_dir=user_data_dir,
+                proxy_server=proxy_server,
+            )
+            return
+        raise ValueError(f"Unsupported browser backend: {backend}")
+
+    async def _start_request_backend(self):
+        """Start direct HTTP backend without browser automation."""
+        self._http_client = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=httpx.Timeout(30.0),
+            headers={
+                "User-Agent": os.environ.get(
+                    "GEMINI_SEARCH_USER_AGENT",
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                ),
+                "Accept-Language": "en-US,en;q=0.9",
+            },
         )
 
-    async def _launch_subprocess_chrome(
+    async def _launch_playwright_browser(
         self,
         headless=True,
         channel="chrome",
         user_data_dir: Optional[str] = None,
         proxy_server: Optional[str] = None,
     ):
-        """Launch Chrome subprocess with minimal automation footprint."""
-        chrome_path = _find_chrome(channel)
-        profile_dir = self._prepare_user_data_dir(user_data_dir)
-        port = int(os.environ.get("GEMINI_SEARCH_CDP_PORT", "19250"))
-        proxy = _env_or_value(proxy_server, "GEMINI_SEARCH_PROXY_SERVER")
-
-        args = [
-            chrome_path,
-            f"--remote-debugging-port={port}",
-            f"--user-data-dir={profile_dir}",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--disable-background-timer-throttling",
-        ]
-        if proxy:
-            args.append(f"--proxy-server={proxy}")
-        if headless:
-            args.append("--headless=new")
-        args.append("about:blank")
-
-        self._proc = subprocess.Popen(
-            args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        await self._wait_for_cdp(port, f"Chrome subprocess (pid={self._proc.pid})")
-        await self._connect_cdp(f"http://127.0.0.1:{port}")
-
-    async def _launch_undetected_chrome(
-        self,
-        headless=True,
-        channel="chrome",
-        user_data_dir: Optional[str] = None,
-        proxy_server: Optional[str] = None,
-        chromedriver_path: Optional[str] = None,
-    ):
-        """Launch Chrome through undetected-chromedriver, then use CDP."""
+        """Launch a Playwright-controlled browser page."""
         try:
-            import undetected_chromedriver as uc
+            from playwright.async_api import async_playwright
         except ImportError as exc:
             raise RuntimeError(
-                "undetected backend requires: pip install -e '.[undetected]'"
+                "playwright backend requires: pip install -e . and playwright install chromium"
             ) from exc
 
-        chrome_path = _env_or_value(None, "UC_CHROME_BINARY", "CHROME_PATH") or _find_chrome(channel)
-        profile_dir = self._prepare_user_data_dir(user_data_dir)
-        port = int(os.environ.get("GEMINI_SEARCH_CDP_PORT", "19250"))
+        self._playwright = await async_playwright().start()
         proxy = _env_or_value(proxy_server, "GEMINI_SEARCH_PROXY_SERVER")
-        driver_path = _env_or_value(
-            chromedriver_path,
-            "GEMINI_SEARCH_CHROMEDRIVER",
-            "UC_CHROMEDRIVER",
-        )
-
-        options = uc.ChromeOptions()
-        options.binary_location = chrome_path
-        options.add_argument("--lang=en-US,en")
-        options.add_argument("--window-size=1365,900")
-        options.add_argument("--no-default-browser-check")
-        options.add_argument("--no-first-run")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
+        launch_args = shlex.split(os.environ.get("GEMINI_SEARCH_CHROME_EXTRA_ARGS", ""))
+        launch_options = {
+            "headless": headless,
+            "args": launch_args,
+        }
         if proxy:
-            options.add_argument(f"--proxy-server={proxy}")
+            launch_options["proxy"] = {"server": proxy}
 
-        self._uc_driver = uc.Chrome(
-            options=options,
-            user_data_dir=profile_dir,
-            driver_executable_path=driver_path or None,
-            browser_executable_path=chrome_path,
-            version_main=_chrome_major_version(chrome_path),
-            port=port,
-            headless=headless,
-            use_subprocess=True,
-        )
-        await self._wait_for_cdp(port, "undetected-chromedriver Chrome")
-        await self._connect_cdp(f"http://127.0.0.1:{port}")
+        executable_path = _env_or_value(None, "CHROME_PATH")
+        if executable_path:
+            launch_options["executable_path"] = executable_path
+        elif channel in ("chrome", "msedge"):
+            launch_options["channel"] = channel
+
+        if user_data_dir:
+            profile_dir = self._prepare_user_data_dir(user_data_dir)
+            self._playwright_context = await self._playwright.chromium.launch_persistent_context(
+                profile_dir,
+                **launch_options,
+            )
+        else:
+            self._playwright_browser = await self._playwright.chromium.launch(**launch_options)
+            self._playwright_context = await self._playwright_browser.new_context()
+        self._playwright_page = await self._playwright_context.new_page()
+
+    async def _launch_cloakbrowser(
+        self,
+        headless=True,
+        user_data_dir: Optional[str] = None,
+        proxy_server: Optional[str] = None,
+    ):
+        """Launch CloakBrowser through its optional Playwright-compatible wrapper."""
+        try:
+            import cloakbrowser
+        except ImportError as exc:
+            raise RuntimeError(
+                "cloakbrowser backend requires: pip install -e '.[cloakbrowser]'"
+            ) from exc
+
+        proxy = _env_or_value(proxy_server, "GEMINI_SEARCH_PROXY_SERVER")
+        kwargs = {"headless": headless}
+        if proxy:
+            kwargs["proxy"] = {"server": proxy}
+
+        profile_dir = self._prepare_user_data_dir(user_data_dir) if user_data_dir else None
+        if profile_dir and hasattr(cloakbrowser, "launch_persistent_context"):
+            self._playwright_context = await _maybe_await(
+                cloakbrowser.launch_persistent_context(profile_dir, **kwargs)
+            )
+            self._playwright_page = await _maybe_await(self._playwright_context.new_page())
+            return
+
+        launcher = getattr(cloakbrowser, "launch_async", None)
+        if launcher is None:
+            launcher = getattr(cloakbrowser, "launch", None)
+        if launcher is None:
+            raise RuntimeError("cloakbrowser package does not expose launch_async or launch")
+
+        browser = launcher(**kwargs)
+        browser = await _maybe_await(browser)
+        self._playwright_browser = browser
+        if hasattr(browser, "new_context"):
+            self._playwright_context = await _maybe_await(browser.new_context())
+            self._playwright_page = await _maybe_await(self._playwright_context.new_page())
+        else:
+            self._playwright_page = await _maybe_await(browser.new_page())
 
     async def _wait_for_cdp(self, port: int, label: str, timeout_sec: float = 20.0):
         """Wait until Chrome exposes /json/version on the requested CDP port."""
@@ -456,6 +377,9 @@ class AIModeEngine:
 
     async def _evaluate(self, expression):
         """Evaluate JS in the page and return the result."""
+        if self._playwright_page is not None:
+            return await self._playwright_page.evaluate(expression)
+
         result = await self._cdp_send("Runtime.evaluate", {
             "expression": expression,
             "awaitPromise": True,
@@ -470,6 +394,11 @@ class AIModeEngine:
 
     async def _navigate(self, url):
         """Navigate the page to a URL and wait for load."""
+        if self._playwright_page is not None:
+            await self._playwright_page.goto(url, wait_until="load")
+            await asyncio.sleep(1)
+            return
+
         await self._cdp_send("Page.enable")
         await self._cdp_send("Page.navigate", {"url": url})
         for _ in range(60):
@@ -480,16 +409,21 @@ class AIModeEngine:
 
     async def _warmup(self):
         """Navigate to Google search to build cookie session."""
+        if self._browser_backend == "request":
+            return
         await self._navigate("https://www.google.com.hk/search?q=hello&hl=en&gl=us")
         url = await self._evaluate("window.location.href")
         if "/sorry/" in (url or ""):
             raise RuntimeError(
-                "Google CAPTCHA during warmup. Try a visible persistent profile, "
-                "an existing Chrome via --cdp-url, or --browser-backend undetected --no-headless."
+                "Google CAPTCHA during warmup. Try a visible persistent profile "
+                "or an existing browser via --cdp-url."
             )
 
     async def ask(self, question: str, timeout_ms: int = 45000) -> str:
         """Ask a question via Google AI Mode."""
+        if self._browser_backend == "request":
+            return await self._ask_request(question, timeout_ms)
+
         async with self._lock:
             js = _ASK_JS.replace("%QUERY%", json.dumps(question))
             try:
@@ -506,6 +440,53 @@ class AIModeEngine:
             return result.get("answer", "")
         return str(result) if result else ""
 
+    async def _ask_request(self, question: str, timeout_ms: int = 45000) -> str:
+        """Ask through direct HTTP requests. This is simpler but less resilient."""
+        if self._http_client is None:
+            await self._start_request_backend()
+
+        params = {"q": question, "hl": "en", "gl": "us", "udm": "50", "aep": "1", "ntc": "1"}
+        r1 = await asyncio.wait_for(
+            self._http_client.get("https://www.google.com.hk/search", params=params),
+            timeout=timeout_ms / 1000,
+        )
+        r1.raise_for_status()
+        html = r1.text
+
+        def match(pattern: str) -> str:
+            found = re.search(pattern, html)
+            return found.group(1) if found else ""
+
+        srtst = match(r'data-srtst="([^"]+)"')
+        if not srtst:
+            raise RuntimeError("request backend could not extract AI Mode token")
+
+        query = {
+            "srtst": srtst,
+            "garc": match(r'data-garc="([^"]+)"'),
+            "mlro": match(r'data-lro-token="([^"]+)"'),
+            "mlros": match(r'data-lro-signature="([^"]+)"'),
+            "ei": match(r'data-ei="([^"]+)"'),
+            "q": question,
+            "yv": "3",
+            "vet": "1" + match(r'aria-current="page"[^>]*data-ved="([^"]+)"') + "..i",
+            "ved": match(r'aria-current="page"[^>]*data-ved="([^"]+)"'),
+            "aep": "1",
+            "gl": "us",
+            "hl": "en",
+            "sca_esv": match(r"sca_esv=([a-f0-9]+)"),
+            "udm": "50",
+            "stkp": match(r'data-stkp="([^"]+)"'),
+            "cs": "0",
+            "async": "_fmt:adl,_xsrf:" + match(r'data-xsrf-folwr-token="([^"]+)"'),
+        }
+        r2 = await self._http_client.get("https://www.google.com.hk/async/folwr", params=query)
+        r2.raise_for_status()
+        text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", r2.text, flags=re.I | re.S)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
     async def ask_stream(self, question: str, timeout_ms: int = 45000):
         """Yield answer in one chunk."""
         text = await self.ask(question, timeout_ms)
@@ -517,20 +498,28 @@ class AIModeEngine:
         if self._ws:
             await self._ws.close()
             self._ws = None
-        if self._uc_driver:
+        if self._playwright_context:
             try:
-                self._uc_driver.quit()
+                await self._playwright_context.close()
             except Exception:
                 pass
-            self._uc_driver = None
-        if self._proc:
-            self._proc.terminate()
+            self._playwright_context = None
+        if self._playwright_browser:
             try:
-                self._proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self._proc.kill()
-                self._proc.wait(timeout=5)
-            self._proc = None
+                await self._playwright_browser.close()
+            except Exception:
+                pass
+            self._playwright_browser = None
+        if self._playwright:
+            try:
+                await self._playwright.stop()
+            except Exception:
+                pass
+            self._playwright = None
+        self._playwright_page = None
+        if self._http_client:
+            await self._http_client.aclose()
+            self._http_client = None
         if self._user_data_dir:
             if self._owns_user_data_dir:
                 shutil.rmtree(self._user_data_dir, ignore_errors=True)
@@ -547,11 +536,10 @@ async def e2e_test():
     browser_backend = os.environ.get("GEMINI_SEARCH_BROWSER_BACKEND")
     user_data_dir = os.environ.get("GEMINI_SEARCH_USER_DATA_DIR")
     proxy_server = os.environ.get("GEMINI_SEARCH_PROXY_SERVER")
-    chromedriver_path = os.environ.get("GEMINI_SEARCH_CHROMEDRIVER") or os.environ.get("UC_CHROMEDRIVER")
     engine = AIModeEngine()
     print(
         "Starting... "
-        f"(cdp={cdp or 'self-launch'}, backend={browser_backend or 'subprocess'}, "
+        f"(cdp={cdp or 'self-launch'}, backend={browser_backend or 'playwright'}, "
         f"channel={channel}, headless={headless})"
     )
     t0 = time.time()
@@ -562,7 +550,6 @@ async def e2e_test():
         user_data_dir=user_data_dir,
         browser_backend=browser_backend,
         proxy_server=proxy_server,
-        chromedriver_path=chromedriver_path,
     )
     print(f"  Ready in {time.time()-t0:.1f}s")
 

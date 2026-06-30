@@ -31,7 +31,6 @@ async def _get_engine() -> AIModeEngine:
                 user_data_dir = os.environ.get("GEMINI_SEARCH_USER_DATA_DIR")
                 browser_backend = os.environ.get("GEMINI_SEARCH_BROWSER_BACKEND")
                 proxy_server = os.environ.get("GEMINI_SEARCH_PROXY_SERVER")
-                chromedriver_path = os.environ.get("GEMINI_SEARCH_CHROMEDRIVER") or os.environ.get("UC_CHROMEDRIVER")
                 await _engine.start(
                     cdp_url=cdp,
                     headless=headless,
@@ -39,7 +38,6 @@ async def _get_engine() -> AIModeEngine:
                     user_data_dir=user_data_dir,
                     browser_backend=browser_backend,
                     proxy_server=proxy_server,
-                    chromedriver_path=chromedriver_path,
                 )
     return _engine
 
