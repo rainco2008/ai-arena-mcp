@@ -12,12 +12,14 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import sys
 import tempfile
 import time
 import urllib.parse
 import urllib.request
 import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -39,6 +41,10 @@ class ProbeResult:
     elapsed_sec: float | None = None
     pid: int | None = None
     note: str | None = None
+    marker_cookie_name: str | None = None
+    marker_cookie_value: str | None = None
+    marker_cookie_set: bool | None = None
+    marker_cookie_seen: bool | None = None
 
 
 def _default_chrome_candidates() -> list[str]:
@@ -77,9 +83,88 @@ def http_json(url: str, timeout: float = 2.0) -> Any:
         return json.loads(resp.read().decode("utf-8", "replace"))
 
 
+def http_json_request(url: str, timeout: float = 2.0, method: str = "GET") -> Any:
+    req = urllib.request.Request(url, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8", "replace"))
+
+
 def http_text(url: str, timeout: float = 10.0) -> str:
     with urllib.request.urlopen(url, timeout=timeout) as resp:
         return resp.read().decode("utf-8", "replace")
+
+
+class CookieMarkerServer:
+    """Tiny local origin used to prove Chrome profile cookie persistence."""
+
+    def __init__(self, name: str, value: str):
+        self.name = name
+        self.value = value
+        self.set_seen = threading.Event()
+        self.check_seen = threading.Event()
+        self.check_cookie_header = ""
+        owner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, fmt: str, *args: Any) -> None:
+                return
+
+            def handle_one_request(self) -> None:
+                try:
+                    super().handle_one_request()
+                except ConnectionResetError:
+                    return
+
+            def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
+                parsed = urllib.parse.urlparse(self.path)
+                if parsed.path == "/set":
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Set-Cookie", f"{owner.name}={owner.value}; Max-Age=3600; Path=/; SameSite=Lax")
+                    self.end_headers()
+                    self.wfile.write(b"cookie set")
+                    owner.set_seen.set()
+                    return
+                if parsed.path == "/check":
+                    owner.check_cookie_header = self.headers.get("Cookie", "")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    payload = {
+                        "ok": owner.cookie_seen,
+                        "cookie": owner.check_cookie_header,
+                    }
+                    self.wfile.write(json.dumps(payload).encode("utf-8"))
+                    owner.check_seen.set()
+                    return
+                self.send_response(404)
+                self.end_headers()
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.port = int(self._server.server_address[1])
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+
+    @property
+    def base_url(self) -> str:
+        return f"http://127.0.0.1:{self.port}"
+
+    @property
+    def cookie_seen(self) -> bool:
+        return f"{self.name}={self.value}" in self.check_cookie_header
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(timeout=2)
+
+    def set_url(self) -> str:
+        return f"{self.base_url}/set"
+
+    def check_url(self) -> str:
+        return f"{self.base_url}/check"
 
 
 def wait_for_cdp(port: int, timeout: float) -> dict[str, Any]:
@@ -142,6 +227,38 @@ def activate_first_page(port: int) -> dict[str, Any] | None:
     return page
 
 
+def open_marker_tab(port: int, url: str) -> dict[str, Any]:
+    encoded = urllib.parse.quote(url, safe="")
+    return http_json_request(f"http://127.0.0.1:{port}/json/new?{encoded}", timeout=3.0, method="PUT")
+
+
+def close_target(port: int, target_id: str | None) -> None:
+    if not target_id:
+        return
+    try:
+        http_text(f"http://127.0.0.1:{port}/json/close/{target_id}", timeout=2.0)
+    except Exception:
+        pass
+
+
+def touch_marker_cookie(port: int, marker: CookieMarkerServer, action: str, timeout: float = 10.0) -> bool | None:
+    target: dict[str, Any] = {}
+    try:
+        if action == "set":
+            marker.set_seen.clear()
+            target = open_marker_tab(port, marker.set_url())
+            return marker.set_seen.wait(timeout)
+        if action == "check":
+            marker.check_seen.clear()
+            marker.check_cookie_header = ""
+            target = open_marker_tab(port, marker.check_url())
+            marker.check_seen.wait(timeout)
+            return marker.cookie_seen
+        return None
+    finally:
+        close_target(port, target.get("id"))
+
+
 def wait_for_google_result(port: int, timeout: float, expect_manual: bool) -> tuple[str | None, str | None, bool | None]:
     deadline = time.time() + timeout
     last_url: str | None = None
@@ -175,9 +292,25 @@ def get_cookie_count(port: int) -> int | None:
     return None
 
 
-def kill_process(proc: subprocess.Popen[Any] | None, grace_sec: float = 3.0) -> None:
+def close_all_pages(port: int) -> None:
+    try:
+        pages = [p for p in list_pages(port) if p.get("type") == "page"]
+    except Exception:
+        return
+    for page in pages:
+        close_target(port, page.get("id"))
+
+
+def kill_process(proc: subprocess.Popen[Any] | None, port: int | None = None, grace_sec: float = 8.0) -> None:
     if proc is None or proc.poll() is not None:
         return
+    if port is not None:
+        close_all_pages(port)
+        try:
+            proc.wait(timeout=grace_sec)
+            return
+        except subprocess.TimeoutExpired:
+            pass
     proc.terminate()
     try:
         proc.wait(timeout=grace_sec)
@@ -186,7 +319,14 @@ def kill_process(proc: subprocess.Popen[Any] | None, grace_sec: float = 3.0) -> 
         proc.wait(timeout=grace_sec)
 
 
-def run_probe(args: argparse.Namespace, mode: str, headless: bool, expect_manual: bool) -> ProbeResult:
+def run_probe(
+    args: argparse.Namespace,
+    mode: str,
+    headless: bool,
+    expect_manual: bool,
+    marker: CookieMarkerServer | None = None,
+    marker_action: str = "none",
+) -> ProbeResult:
     started = time.time()
     chrome_path = find_chrome(args.chrome_path or os.environ.get("CHROME_PATH"))
     profile_dir = Path(args.profile_dir).expanduser().resolve()
@@ -210,7 +350,19 @@ def run_probe(args: argparse.Namespace, mode: str, headless: bool, expect_manual
             expect_manual=expect_manual,
         )
         cookie_count = get_cookie_count(args.port)
+        marker_cookie_set = None
+        marker_cookie_seen = None
+        if marker is not None:
+            marker_result = touch_marker_cookie(args.port, marker, marker_action)
+            if marker_action == "set":
+                marker_cookie_set = marker_result
+            elif marker_action == "check":
+                marker_cookie_seen = marker_result
         ok = captcha is False or (expect_manual and captcha is not True)
+        if marker_action == "set":
+            ok = ok and marker_cookie_set is True
+        if marker_action == "check":
+            ok = ok and marker_cookie_seen is True
         note = None
         if expect_manual and captcha is True:
             ok = False
@@ -229,6 +381,10 @@ def run_probe(args: argparse.Namespace, mode: str, headless: bool, expect_manual
             elapsed_sec=round(time.time() - started, 3),
             pid=proc.pid,
             note=note,
+            marker_cookie_name=marker.name if marker else None,
+            marker_cookie_value=marker.value if marker else None,
+            marker_cookie_set=marker_cookie_set,
+            marker_cookie_seen=marker_cookie_seen,
         )
     except Exception as exc:  # noqa: BLE001 - diagnostic script
         return ProbeResult(
@@ -241,10 +397,12 @@ def run_probe(args: argparse.Namespace, mode: str, headless: bool, expect_manual
             error=f"{type(exc).__name__}: {exc}",
             elapsed_sec=round(time.time() - started, 3),
             pid=proc.pid if proc else None,
+            marker_cookie_name=marker.name if marker else None,
+            marker_cookie_value=marker.value if marker else None,
         )
     finally:
         if not args.keep_open:
-            kill_process(proc)
+            kill_process(proc, port=args.port)
 
 
 def write_json(path: str | None, data: dict[str, Any]) -> None:
@@ -266,9 +424,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--probe-timeout", type=float, default=25)
     parser.add_argument("--manual-timeout", type=float, default=180)
     parser.add_argument("--between-delay", type=float, default=2)
+    parser.add_argument("--cookie-flush-delay", type=float, default=3)
     parser.add_argument("--keep-open", action="store_true", help="Leave Chrome running after the selected phase")
     parser.add_argument("--open-debug-page", action="store_true")
     parser.add_argument("--chrome-arg", action="append", default=[], help="Additional raw Chrome arg; repeatable")
+    parser.add_argument("--marker-cookie-name", default="gemini_search_probe_marker")
+    parser.add_argument("--marker-cookie-value", default="")
     parser.add_argument("--out", default=None, help="Write JSON summary to this path")
     return parser.parse_args(argv)
 
@@ -276,31 +437,39 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
     stages: dict[str, Any] = {}
-    if args.mode in {"headed", "two-phase"}:
-        headed = run_probe(args, "headed_prime", headless=False, expect_manual=True)
-        stages["headed_prime"] = asdict(headed)
-        if args.mode == "headed":
-            data = {"ok": headed.ok, "stages": stages}
-            write_json(args.out, data)
-            print(json.dumps(data, ensure_ascii=False, indent=2))
-            return 0 if headed.ok else 1
-        if not headed.ok:
-            data = {"ok": False, "stages": stages}
-            write_json(args.out, data)
-            print(json.dumps(data, ensure_ascii=False, indent=2))
-            return 1
-        time.sleep(args.between_delay)
+    marker = CookieMarkerServer(args.marker_cookie_name, args.marker_cookie_value or f"probe-{int(time.time() * 1000)}")
+    marker.start()
+    try:
+        if args.mode in {"headed", "two-phase"}:
+            headed = run_probe(args, "headed_prime", headless=False, expect_manual=True, marker=marker, marker_action="set")
+            stages["headed_prime"] = asdict(headed)
+            if args.mode == "headed":
+                data = {"ok": headed.ok, "stages": stages}
+                write_json(args.out, data)
+                print(json.dumps(data, ensure_ascii=False, indent=2))
+                return 0 if headed.ok else 1
+            if not headed.ok:
+                data = {"ok": False, "stages": stages}
+                write_json(args.out, data)
+                print(json.dumps(data, ensure_ascii=False, indent=2))
+                return 1
+            time.sleep(args.between_delay)
 
-    if args.mode in {"headless", "two-phase"}:
-        headless = run_probe(args, "headless_reuse", headless=True, expect_manual=False)
-        stages["headless_reuse"] = asdict(headless)
+        if args.mode in {"headless", "two-phase"}:
+            marker_action = "check" if args.mode == "two-phase" else "none"
+            if marker_action == "check":
+                time.sleep(args.cookie_flush_delay)
+            headless = run_probe(args, "headless_reuse", headless=True, expect_manual=False, marker=marker, marker_action=marker_action)
+            stages["headless_reuse"] = asdict(headless)
 
-    final_headless = stages.get("headless_reuse")
-    ok = bool(final_headless.get("ok")) if final_headless else all(s.get("ok") for s in stages.values())
-    data = {"ok": ok, "stages": stages}
-    write_json(args.out, data)
-    print(json.dumps(data, ensure_ascii=False, indent=2))
-    return 0 if ok else 1
+        final_headless = stages.get("headless_reuse")
+        ok = bool(final_headless.get("ok")) if final_headless else all(s.get("ok") for s in stages.values())
+        data = {"ok": ok, "stages": stages}
+        write_json(args.out, data)
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return 0 if ok else 1
+    finally:
+        marker.stop()
 
 
 if __name__ == "__main__":
