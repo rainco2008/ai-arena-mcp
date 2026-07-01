@@ -12,10 +12,10 @@ from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-from .engine import AIModeEngine
+from .providers import SearchEngine, mask_secret, merge_secret, normalize_search_provider
 
 
-engine = AIModeEngine()
+engine = SearchEngine()
 engine_lock = asyncio.Lock()
 runtime_config = {}
 engine_started_at = None
@@ -29,33 +29,45 @@ def _env_bool(name: str, default: bool) -> bool:
     return value not in ("0", "false", "False", "no", "NO")
 
 
+def _default_user_data_dir() -> str:
+    return str((Path.cwd() / "profiles" / "default").resolve())
+
+
 def _initial_config(args=None):
+    if args:
+        headless = bool(getattr(args, "headless", False))
+        if getattr(args, "no_headless", False):
+            headless = False
+    else:
+        headless = _env_bool("HEADLESS", False)
+
     return {
         "cdp_url": getattr(args, "cdp_url", None) if args else os.environ.get("CDP_URL"),
-        "headless": not getattr(args, "no_headless", False) if args else _env_bool("HEADLESS", True),
-        "channel": getattr(args, "channel", None) if args else os.environ.get("BROWSER_CHANNEL", "chromium"),
+        "headless": headless,
+        "channel": getattr(args, "channel", None) if args else os.environ.get("BROWSER_CHANNEL", "chrome"),
         "user_data_dir": (
             getattr(args, "user_data_dir", None) if args else None
-        ) or os.environ.get("GEMINI_SEARCH_USER_DATA_DIR"),
+        ) or os.environ.get("GEMINI_SEARCH_USER_DATA_DIR") or _default_user_data_dir(),
         "browser_backend": (
             getattr(args, "browser_backend", None) if args else None
         ) or os.environ.get("GEMINI_SEARCH_BROWSER_BACKEND", "playwright"),
         "proxy_server": (
             getattr(args, "proxy_server", None) if args else None
         ) or os.environ.get("GEMINI_SEARCH_PROXY_SERVER"),
+        "search_provider": (
+            getattr(args, "search_provider", None) if args else None
+        ) or os.environ.get("GEMINI_SEARCH_PROVIDER", "google_ai_mode"),
+        "gemini_api_key": os.environ.get("GEMINI_API_KEY"),
+        "gemini_model": os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+        "brave_api_key": os.environ.get("BRAVE_API_KEY"),
+        "tavily_api_key": os.environ.get("TAVILY_API_KEY"),
+        "tavily_search_depth": os.environ.get("TAVILY_SEARCH_DEPTH", "basic"),
     }
 
 
 async def _start_engine(config):
     global engine_started_at, last_error
-    await engine.start(
-        cdp_url=config.get("cdp_url"),
-        headless=config["headless"],
-        channel=config["channel"],
-        user_data_dir=config.get("user_data_dir"),
-        browser_backend=config.get("browser_backend"),
-        proxy_server=config.get("proxy_server"),
-    )
+    await engine.start(**config)
     engine_started_at = time.time()
     last_error = None
 
@@ -64,7 +76,7 @@ async def _restart_engine(config):
     global engine, runtime_config, engine_started_at, last_error
     async with engine_lock:
         await engine.stop()
-        engine = AIModeEngine()
+        engine = SearchEngine()
         runtime_config = dict(config)
         try:
             await _start_engine(runtime_config)
@@ -88,6 +100,14 @@ def _require_admin(request: Request):
     return None
 
 
+def _safe_runtime_config(config: dict) -> dict:
+    safe_config = dict(config)
+    safe_config["gemini_api_key"] = mask_secret(safe_config.get("gemini_api_key"))
+    safe_config["brave_api_key"] = mask_secret(safe_config.get("brave_api_key"))
+    safe_config["tavily_api_key"] = mask_secret(safe_config.get("tavily_api_key"))
+    return safe_config
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global runtime_config, last_error, engine_started_at
@@ -98,7 +118,8 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         last_error = str(exc)
         engine_started_at = None
-        print(f"AI Mode engine failed to start: {exc}")
+        safe_error = str(exc).encode("ascii", "backslashreplace").decode("ascii")
+        print(f"AI Mode engine failed to start: {safe_error}")
     yield
     await engine.stop()
 
@@ -129,6 +150,7 @@ async def health(request: Request):
         "uptime_seconds": int(time.time() - engine_started_at) if engine_started_at else None,
         "last_error": last_error,
         "backend": runtime_config.get("browser_backend"),
+        "search_provider": runtime_config.get("search_provider"),
     }
 
 
@@ -137,7 +159,7 @@ async def get_runtime(request: Request):
     denied = _require_admin(request)
     if denied:
         return denied
-    safe_config = dict(runtime_config)
+    safe_config = _safe_runtime_config(runtime_config)
     safe_config["admin_token_required"] = bool(os.environ.get("ADMIN_TOKEN"))
     return safe_config
 
@@ -149,16 +171,34 @@ async def update_runtime(request: Request):
         return denied
     body = await request.json()
     config = dict(runtime_config)
-    allowed = {"cdp_url", "headless", "channel", "user_data_dir", "browser_backend", "proxy_server"}
+    allowed = {
+        "cdp_url",
+        "headless",
+        "channel",
+        "user_data_dir",
+        "browser_backend",
+        "proxy_server",
+        "search_provider",
+        "gemini_model",
+        "tavily_search_depth",
+    }
     for key in allowed:
         if key in body:
             config[key] = body[key] or None
+    for key in ("gemini_api_key", "brave_api_key", "tavily_api_key"):
+        if key in body:
+            config[key] = merge_secret(config.get(key), body.get(key))
     if not config.get("channel"):
         config["channel"] = "chromium"
     if not config.get("browser_backend"):
         config["browser_backend"] = "playwright"
+    config["search_provider"] = normalize_search_provider(config.get("search_provider"))
+    if not config.get("gemini_model"):
+        config["gemini_model"] = "gemini-2.5-flash"
+    if not config.get("tavily_search_depth"):
+        config["tavily_search_depth"] = "basic"
     await _restart_engine(config)
-    return {"ok": True, "runtime": runtime_config}
+    return {"ok": True, "runtime": _safe_runtime_config(runtime_config)}
 
 
 @app.post("/api/runtime/restart")
@@ -167,7 +207,7 @@ async def restart_runtime(request: Request):
     if denied:
         return denied
     await _restart_engine(runtime_config)
-    return {"ok": True, "runtime": runtime_config}
+    return {"ok": True, "runtime": _safe_runtime_config(runtime_config)}
 
 
 @app.post("/api/test")
@@ -197,6 +237,7 @@ async def test_prompt(request: Request):
     return {
         "ok": True,
         "backend": runtime_config.get("browser_backend"),
+        "search_provider": runtime_config.get("search_provider"),
         "elapsed_ms": int((time.time() - started) * 1000),
         "answer": text,
     }
@@ -267,27 +308,35 @@ def _build_prompt(messages):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Gemini Search → OpenAI API")
+    parser = argparse.ArgumentParser(description="Gemini Search -> OpenAI API")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--cdp-url", default=None, help="Connect to existing Chrome (e.g. http://127.0.0.1:9222)")
     parser.add_argument("--channel", default="chrome", choices=["chrome", "msedge", "chromium"])
-    parser.add_argument("--no-headless", action="store_true")
+    parser.add_argument("--headless", action="store_true", help="Run without a visible browser window")
+    parser.add_argument("--no-headless", action="store_true", help="Deprecated; headed mode is the default")
     parser.add_argument("--user-data-dir", default=None, help="Persistent Chrome profile directory to create/reuse")
     parser.add_argument(
         "--browser-backend",
-        choices=["request", "playwright", "cloakbrowser"],
+        choices=["playwright", "cloakbrowser"],
         default=None,
         help="Backend. Defaults to GEMINI_SEARCH_BROWSER_BACKEND or playwright.",
     )
     parser.add_argument("--proxy-server", default=None, help="Chrome proxy server, e.g. socks5://127.0.0.1:7897")
+    parser.add_argument(
+        "--search-provider",
+        choices=["google_ai_mode", "gemini_grounding", "brave", "tavily"],
+        default=None,
+        help="Search provider. Defaults to GEMINI_SEARCH_PROVIDER or google_ai_mode.",
+    )
     args = parser.parse_args()
 
     app.state.config = _initial_config(args)
     print(f"gemini-search-mcp v0.4.0")
     print(f"  API: http://{args.host}:{args.port}/v1")
+    print(f"  Search provider: {app.state.config['search_provider']}")
     browser_backend = app.state.config["browser_backend"]
-    browser_desc = args.cdp_url or f"{browser_backend}/{args.channel} (headless={not args.no_headless})"
+    browser_desc = args.cdp_url or f"{browser_backend}/{args.channel} (headless={app.state.config['headless']})"
     print(f"  Browser: {browser_desc}")
     if app.state.config.get("user_data_dir"):
         print(f"  User data dir: {app.state.config['user_data_dir']}")

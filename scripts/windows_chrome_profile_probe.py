@@ -283,7 +283,7 @@ def wait_for_google_result(port: int, timeout: float, expect_manual: bool) -> tu
 
 def get_cookie_count(port: int) -> int | None:
     try:
-        encoded = urllib.parse.quote("https://www.google.com.hk/", safe="")
+        encoded = urllib.parse.quote("https://www.google.co.uk/", safe="")
         cookies = http_json(f"http://127.0.0.1:{port}/json/cookies/{encoded}", timeout=2.0)
         if isinstance(cookies, list):
             return len(cookies)
@@ -419,7 +419,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--mode", choices=["headed", "headless", "two-phase"], default="two-phase")
     parser.add_argument("--chrome-path", default=None)
     parser.add_argument("--port", type=int, default=19250)
-    parser.add_argument("--url", default="https://www.google.com.hk/search?q=hello&hl=en&gl=us")
+    parser.add_argument("--url", default="https://www.google.co.uk/search?q=latest%20UK%20technology%20news%20and%20weather%20in%20London%20this%20week&hl=en-GB&gl=GB")
     parser.add_argument("--startup-timeout", type=float, default=20)
     parser.add_argument("--probe-timeout", type=float, default=25)
     parser.add_argument("--manual-timeout", type=float, default=180)

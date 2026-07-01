@@ -7,3 +7,9 @@ services:
     shm_size: "2gb"
     environment:
       - PYTHONUNBUFFERED=1
+      - GEMINI_SEARCH_PROVIDER=${GEMINI_SEARCH_PROVIDER:-google_ai_mode}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - BRAVE_API_KEY=${BRAVE_API_KEY:-}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - TAVILY_SEARCH_DEPTH=${TAVILY_SEARCH_DEPTH:-basic}

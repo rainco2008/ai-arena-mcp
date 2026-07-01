@@ -1,30 +1,30 @@
-"""Gemini Search MCP Server — free web search for AI agents.
+"""Gemini Search MCP Server - free web search for AI agents.
 
 Exposes Google Search AI Mode as MCP tools. Any MCP-compatible client
 (Claude Desktop, Claude Code, Cursor, etc.) can call these tools to get
-real-time web-grounded answers powered by Gemini — zero API key, unlimited.
+real-time web-grounded answers powered by Gemini - zero API key, unlimited.
 """
 import asyncio
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
-from gemini_search.engine import AIModeEngine
+from gemini_search.providers import SearchEngine
 
 mcp = FastMCP(name="Gemini Search")
 READONLY = ToolAnnotations(readOnlyHint=True)
 
-_engine: Optional[AIModeEngine] = None
+_engine: Optional[SearchEngine] = None
 _lock = asyncio.Lock()
 
 
-async def _get_engine() -> AIModeEngine:
+async def _get_engine() -> SearchEngine:
     global _engine
     if _engine is None:
         async with _lock:
             if _engine is None:
                 import os
-                _engine = AIModeEngine()
+                _engine = SearchEngine()
                 cdp = os.environ.get("CDP_URL")
                 channel = os.environ.get("BROWSER_CHANNEL", "chrome")
                 headless = os.environ.get("HEADLESS", "1") != "0"
@@ -38,6 +38,12 @@ async def _get_engine() -> AIModeEngine:
                     user_data_dir=user_data_dir,
                     browser_backend=browser_backend,
                     proxy_server=proxy_server,
+                    search_provider=os.environ.get("GEMINI_SEARCH_PROVIDER", "google_ai_mode"),
+                    gemini_api_key=os.environ.get("GEMINI_API_KEY"),
+                    gemini_model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+                    brave_api_key=os.environ.get("BRAVE_API_KEY"),
+                    tavily_api_key=os.environ.get("TAVILY_API_KEY"),
+                    tavily_search_depth=os.environ.get("TAVILY_SEARCH_DEPTH", "basic"),
                 )
     return _engine
 
@@ -52,7 +58,7 @@ async def web_search(
     real-time and return a comprehensive, grounded answer. Results include
     information from current web pages, news, and data.
 
-    This is equivalent to using Google Search's "AI Mode" tab — the AI reads
+    This is equivalent to using Google Search's "AI Mode" tab - the AI reads
     multiple web sources and synthesizes an answer, similar to Perplexity or
     Grok's web search, but powered by Google's search index.
 
@@ -90,8 +96,19 @@ async def ask(
     return await engine.ask(prompt)
 
 
+async def _shutdown_engine() -> None:
+    """Close browser and HTTP resources owned by the MCP process."""
+    global _engine
+    if _engine is not None:
+        await _engine.stop()
+        _engine = None
+
+
 def main():
-    mcp.run(transport='stdio')
+    try:
+        mcp.run(transport="stdio")
+    finally:
+        asyncio.run(_shutdown_engine())
 
 
 if __name__ == "__main__":

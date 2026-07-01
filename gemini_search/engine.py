@@ -4,15 +4,13 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import re
+import random
 import shlex
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
-
-import httpx
+from urllib.parse import quote, urlparse
 
 try:
     import websockets
@@ -23,7 +21,7 @@ except ImportError:  # pragma: no cover - surfaced at runtime by _connect_cdp
 _ASK_JS = """
 (async (q) => {
     try {
-        const pageUrl = 'https://www.google.com.hk/search?q=' + encodeURIComponent(q) + '&hl=en&gl=us&udm=50&aep=1&ntc=1';
+        const pageUrl = %SEARCH_URL% + '?q=' + encodeURIComponent(q) + '&hl=en-GB&gl=GB&udm=50&aep=1&ntc=1';
         const r1 = await fetch(pageUrl, {credentials:'include'});
         if (!r1.ok) return {error:'fetch_status_' + r1.status, htmlLen:0};
         const html = await r1.text();
@@ -38,8 +36,8 @@ _ASK_JS = """
         const stkp = m(/data-stkp="([^"]+)"/);
         const ved = m(/aria-current="page"[^>]*data-ved="([^"]+)"/);
         const sca = m(/sca_esv=([a-f0-9]+)/);
-        const p = new URLSearchParams({srtst,garc,mlro:lro,mlros,ei,q,yv:'3',vet:'1'+ved+'..i',ved,aep:'1',gl:'us',hl:'en',sca_esv:sca,udm:'50',stkp,cs:'0',async:'_fmt:adl,_xsrf:'+xsrf});
-        const r2 = await fetch('https://www.google.com.hk/async/folwr?'+p.toString(), {credentials:'include'});
+        const p = new URLSearchParams({srtst,garc,mlro:lro,mlros,ei,q,yv:'3',vet:'1'+ved+'..i',ved,aep:'1',gl:'GB',hl:'en-GB',sca_esv:sca,udm:'50',stkp,cs:'0',async:'_fmt:adl,_xsrf:'+xsrf});
+        const r2 = await fetch(%ASYNC_URL% + '?' + p.toString(), {credentials:'include'});
         if (!r2.ok) return {error:'folwr_status_' + r2.status};
         const fh = await r2.text();
         const div = document.createElement('div');
@@ -75,6 +73,70 @@ _ASK_JS = """
 })(%QUERY%)
 """
 
+_STEALTH_INIT_JS = """
+(() => {
+    const defineGetter = (target, prop, getter) => {
+        try {
+            Object.defineProperty(target, prop, {
+                get: getter,
+                configurable: true,
+            });
+        } catch (_) {}
+    };
+
+    defineGetter(Navigator.prototype, 'webdriver', () => undefined);
+    defineGetter(Navigator.prototype, 'languages', () => ['en-GB', 'en']);
+    defineGetter(Navigator.prototype, 'platform', () => 'Win32');
+    defineGetter(Navigator.prototype, 'hardwareConcurrency', () => 8);
+    defineGetter(Navigator.prototype, 'deviceMemory', () => 8);
+    defineGetter(Navigator.prototype, 'maxTouchPoints', () => 0);
+
+    const pluginData = [
+        {name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format'},
+        {name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: ''},
+        {name: 'Native Client', filename: 'internal-nacl-plugin', description: ''},
+    ];
+    const plugins = pluginData.map((plugin) => ({
+        ...plugin,
+        length: 1,
+        0: {type: 'application/pdf', suffixes: 'pdf', description: plugin.description},
+    }));
+    Object.defineProperties(plugins, {
+        length: {value: pluginData.length},
+        item: {value: (index) => plugins[index] || null},
+        namedItem: {value: (name) => plugins.find((plugin) => plugin.name === name) || null},
+        refresh: {value: () => undefined},
+    });
+    defineGetter(Navigator.prototype, 'plugins', () => plugins);
+    defineGetter(Navigator.prototype, 'mimeTypes', () => ({
+        length: 1,
+        0: {type: 'application/pdf', suffixes: 'pdf', description: 'Portable Document Format'},
+        item(index) { return this[index] || null; },
+        namedItem(name) { return name === 'application/pdf' ? this[0] : null; },
+    }));
+
+    window.chrome = window.chrome || {};
+    window.chrome.runtime = window.chrome.runtime || {};
+    window.chrome.app = window.chrome.app || {};
+
+    const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
+    if (originalQuery) {
+        window.navigator.permissions.query = (parameters) => (
+            parameters && parameters.name === 'notifications'
+                ? Promise.resolve({state: Notification.permission})
+                : originalQuery.call(window.navigator.permissions, parameters)
+        );
+    }
+
+    const getParameter = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        if (parameter === 37445) return 'Google Inc. (Intel)';
+        if (parameter === 37446) return 'ANGLE (Intel, Intel(R) UHD Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)';
+        return getParameter.call(this, parameter);
+    };
+})();
+"""
+
 
 
 def _env_or_value(value: Optional[str], *env_names: str) -> Optional[str]:
@@ -97,9 +159,6 @@ async def _maybe_await(value):
 def _normalize_browser_backend(backend: Optional[str]) -> str:
     value = (backend or "playwright").strip().lower()
     aliases = {
-        "http": "request",
-        "requests": "request",
-        "request": "request",
         "playwright": "playwright",
         "pw": "playwright",
         "cloak": "cloakbrowser",
@@ -107,9 +166,81 @@ def _normalize_browser_backend(backend: Optional[str]) -> str:
     }
     if value not in aliases:
         raise ValueError(
-            "browser_backend must be one of: request, playwright, cloakbrowser"
+            "browser_backend must be one of: playwright, cloakbrowser"
         )
     return aliases[value]
+
+
+def _google_base_url() -> str:
+    value = os.environ.get("GEMINI_SEARCH_GOOGLE_BASE_URL", "https://www.google.co.uk")
+    value = value.rstrip("/")
+    parsed = urlparse(value)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("GEMINI_SEARCH_GOOGLE_BASE_URL must be an HTTP URL")
+    return value
+
+
+def _warmup_query() -> str:
+    configured = os.environ.get("GEMINI_SEARCH_WARMUP_QUERY")
+    if configured:
+        return random.choice([item.strip() for item in configured.split("|") if item.strip()])
+    return random.choice(
+        [
+            "latest UK technology news and weather in London this week",
+            "train travel updates from London to Manchester today",
+            "best independent coffee shops near central London",
+            "UK science and innovation news this week",
+            "weekend events in London and South East England",
+            "current transport and weather updates for Greater London",
+            "recent renewable energy news in the United Kingdom",
+            "what is happening in UK tech startups this week",
+        ]
+    )
+
+
+def _default_user_data_dir() -> str:
+    return str((Path.cwd() / "profiles" / "default").resolve())
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if not value:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if not value:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+def _browser_context_options() -> dict:
+    width = _env_int("GEMINI_SEARCH_VIEWPORT_WIDTH", 1365)
+    height = _env_int("GEMINI_SEARCH_VIEWPORT_HEIGHT", 768)
+    screen_width = _env_int("GEMINI_SEARCH_SCREEN_WIDTH", 1920)
+    screen_height = _env_int("GEMINI_SEARCH_SCREEN_HEIGHT", 1080)
+    return {
+        "viewport": {"width": width, "height": height},
+        "screen": {"width": screen_width, "height": screen_height},
+        "device_scale_factor": _env_float("GEMINI_SEARCH_DEVICE_SCALE_FACTOR", 1.0),
+        "is_mobile": False,
+        "has_touch": False,
+        "locale": os.environ.get("GEMINI_SEARCH_LOCALE", "en-GB"),
+        "timezone_id": os.environ.get("GEMINI_SEARCH_TIMEZONE_ID", "Europe/London"),
+        "user_agent": os.environ.get(
+            "GEMINI_SEARCH_USER_AGENT",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        ),
+    }
 
 
 def _validate_local_cdp_url(cdp_url: Optional[str]) -> Optional[str]:
@@ -133,7 +264,6 @@ class AIModeEngine:
         self._playwright_browser = None
         self._playwright_context = None
         self._playwright_page = None
-        self._http_client = None
         self._ws = None
         self._ws_url = None
         self._page_target = None
@@ -143,11 +273,12 @@ class AIModeEngine:
         self._user_data_dir = None
         self._owns_user_data_dir = False
         self._browser_backend = "playwright"
+        self._headless = True
 
     async def start(
         self,
         cdp_url=None,
-        headless=True,
+        headless=False,
         channel="chrome",
         user_data_dir: Optional[str] = None,
         browser_backend: Optional[str] = None,
@@ -156,21 +287,24 @@ class AIModeEngine:
         """Start or connect to a local browser.
 
         If cdp_url is provided, it must point to a local in-container Chrome instance.
-        - request: direct HTTP requests without a browser.
         - playwright: Playwright-controlled browser using a local browser binary.
         - cloakbrowser: optional CloakBrowser wrapper with Playwright-like API.
 
         user_data_dir can be supplied to persist cookies across runs. When it is
-        omitted, a temporary profile is created and deleted on stop.
+        omitted, profiles/default is used by default.
         """
+        user_data_dir = (
+            user_data_dir
+            or os.environ.get("GEMINI_SEARCH_USER_DATA_DIR")
+            or _default_user_data_dir()
+        )
         self._cdp_url = _validate_local_cdp_url(cdp_url)
         self._browser_backend = _normalize_browser_backend(
             _env_or_value(browser_backend, "GEMINI_SEARCH_BROWSER_BACKEND")
         )
+        self._headless = headless
         try:
-            if self._browser_backend == "request":
-                await self._start_request_backend()
-            elif self._cdp_url:
+            if self._cdp_url:
                 await self._connect_cdp(self._cdp_url)
             else:
                 await self._launch_browser(
@@ -222,21 +356,6 @@ class AIModeEngine:
             return
         raise ValueError(f"Unsupported browser backend: {backend}")
 
-    async def _start_request_backend(self):
-        """Start direct HTTP backend without browser automation."""
-        self._http_client = httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=httpx.Timeout(30.0),
-            headers={
-                "User-Agent": os.environ.get(
-                    "GEMINI_SEARCH_USER_AGENT",
-                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                ),
-                "Accept-Language": "en-US,en;q=0.9",
-            },
-        )
-
     async def _launch_playwright_browser(
         self,
         headless=True,
@@ -254,10 +373,20 @@ class AIModeEngine:
 
         self._playwright = await async_playwright().start()
         proxy = _env_or_value(proxy_server, "GEMINI_SEARCH_PROXY_SERVER")
-        launch_args = shlex.split(os.environ.get("GEMINI_SEARCH_CHROME_EXTRA_ARGS", ""))
+        default_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--enable-gpu",
+            "--enable-webgl",
+            "--use-gl=angle",
+            "--window-size=1365,768",
+        ]
+        launch_args = default_args + shlex.split(
+            os.environ.get("GEMINI_SEARCH_CHROME_EXTRA_ARGS", "")
+        )
         launch_options = {
             "headless": headless,
             "args": launch_args,
+            "ignore_default_args": ["--enable-automation"],
         }
         if proxy:
             launch_options["proxy"] = {"server": proxy}
@@ -268,16 +397,51 @@ class AIModeEngine:
         elif channel in ("chrome", "msedge"):
             launch_options["channel"] = channel
 
+        context_options = _browser_context_options()
         if user_data_dir:
             profile_dir = self._prepare_user_data_dir(user_data_dir)
             self._playwright_context = await self._playwright.chromium.launch_persistent_context(
                 profile_dir,
+                **context_options,
                 **launch_options,
             )
         else:
             self._playwright_browser = await self._playwright.chromium.launch(**launch_options)
-            self._playwright_context = await self._playwright_browser.new_context()
+            self._playwright_context = await self._playwright_browser.new_context(
+                **context_options
+            )
+        await self._apply_playwright_stealth()
         self._playwright_page = await self._playwright_context.new_page()
+
+    async def _apply_playwright_stealth(self):
+        """Apply Python stealth plugin when available, plus local browser shims."""
+        try:
+            from playwright_stealth import Stealth
+        except ImportError:
+            await self._playwright_context.add_init_script(_STEALTH_INIT_JS)
+            return
+
+        try:
+            stealth = Stealth()
+            apply = getattr(stealth, "apply_stealth_async", None)
+            if apply is not None:
+                await apply(self._playwright_context)
+                await self._playwright_context.add_init_script(_STEALTH_INIT_JS)
+                return
+        except TypeError:
+            pass
+
+        try:
+            from playwright_stealth import stealth_async
+        except ImportError:
+            await self._playwright_context.add_init_script(_STEALTH_INIT_JS)
+            return
+        page = await self._playwright_context.new_page()
+        try:
+            await stealth_async(page)
+        finally:
+            await page.close()
+        await self._playwright_context.add_init_script(_STEALTH_INIT_JS)
 
     async def _launch_cloakbrowser(
         self,
@@ -299,6 +463,14 @@ class AIModeEngine:
             kwargs["proxy"] = {"server": proxy}
 
         profile_dir = self._prepare_user_data_dir(user_data_dir) if user_data_dir else None
+        if profile_dir and hasattr(cloakbrowser, "launch_persistent_context_async"):
+            self._playwright_context = await cloakbrowser.launch_persistent_context_async(
+                profile_dir,
+                **kwargs,
+            )
+            self._playwright_page = await self._playwright_context.new_page()
+            return
+
         if profile_dir and hasattr(cloakbrowser, "launch_persistent_context"):
             self._playwright_context = await _maybe_await(
                 cloakbrowser.launch_persistent_context(profile_dir, **kwargs)
@@ -409,23 +581,166 @@ class AIModeEngine:
 
     async def _warmup(self):
         """Navigate to Google search to build cookie session."""
-        if self._browser_backend == "request":
-            return
-        await self._navigate("https://www.google.com.hk/search?q=hello&hl=en&gl=us")
-        url = await self._evaluate("window.location.href")
-        if "/sorry/" in (url or ""):
+        if self._playwright_page is not None:
+            await self._human_warmup_playwright()
+        else:
+            query = quote(_warmup_query(), safe="")
+            await self._navigate(f"{_google_base_url()}/search?q={query}&hl=en-GB&gl=GB")
+        if await self._captcha_visible():
+            if not self._headless:
+                await self._wait_for_manual_captcha()
+                return
             raise RuntimeError(
                 "Google CAPTCHA during warmup. Try a visible persistent profile "
                 "or an existing browser via --cdp-url."
             )
 
+    async def _captcha_visible(self) -> bool:
+        """Best-effort CAPTCHA/sorry-page detection during navigation churn."""
+        for _ in range(5):
+            try:
+                if self._playwright_page is not None:
+                    url = self._playwright_page.url or ""
+                    title = await self._playwright_page.title()
+                    body = await self._playwright_page.locator("body").inner_text(timeout=1500)
+                else:
+                    url = await self._evaluate("window.location.href")
+                    title = ""
+                    body = ""
+                text = f"{url}\n{title}\n{body}".lower()
+                if any(
+                    marker in text
+                    for marker in (
+                        "/sorry/",
+                        "captcha",
+                        "unusual traffic",
+                        "not a robot",
+                        "our systems have detected",
+                    )
+                ):
+                    return True
+                return False
+            except Exception:
+                await asyncio.sleep(1)
+        return False
+
+    async def _wait_for_manual_captcha(self):
+        """Wait for a user to solve Google CAPTCHA in a visible browser."""
+        timeout_sec = _env_int("GEMINI_SEARCH_MANUAL_CAPTCHA_TIMEOUT", 600)
+        print(
+            "Google CAPTCHA detected. Complete it in the browser window; "
+            f"waiting up to {timeout_sec} seconds..."
+        )
+        deadline = asyncio.get_running_loop().time() + timeout_sec
+        poll_sec = _env_int("GEMINI_SEARCH_MANUAL_CAPTCHA_POLL_SECONDS", 10)
+        while asyncio.get_running_loop().time() < deadline:
+            await asyncio.sleep(poll_sec)
+            if not await self._captcha_visible():
+                await asyncio.sleep(random.uniform(1.0, 2.0))
+                return
+        raise RuntimeError("Google CAPTCHA was not completed before the manual timeout")
+
+    async def wait_for_manual_inspection(self, reason: str):
+        """Keep a visible browser open so a user can inspect or solve CAPTCHA."""
+        if self._headless:
+            return
+        timeout_sec = _env_int("GEMINI_SEARCH_MANUAL_CAPTCHA_TIMEOUT", 600)
+        print(f"{reason} Keeping browser open for up to {timeout_sec} seconds...")
+        await asyncio.sleep(timeout_sec)
+
+    async def _human_warmup_playwright(self):
+        """Build an initial Google session through visible page interactions."""
+        page = self._playwright_page
+        base_url = _google_base_url()
+        warmup_query = _warmup_query()
+        await page.goto(f"{base_url}/?hl=en-GB&gl=GB", wait_until="domcontentloaded")
+        await asyncio.sleep(random.uniform(1.5, 3.5))
+
+        consent_patterns = [
+            "Accept all",
+            "I agree",
+            "Agree",
+            "Reject all",
+            "Stay signed out",
+        ]
+        for text in consent_patterns:
+            try:
+                button = page.get_by_role("button", name=text)
+                if await button.count():
+                    await button.first.click(delay=random.randint(80, 180), timeout=1500)
+                    await asyncio.sleep(random.uniform(0.8, 1.8))
+                    break
+            except Exception:
+                pass
+
+        search_box = page.locator("textarea[name='q'], input[name='q']").first
+        try:
+            await search_box.wait_for(state="visible", timeout=5000)
+            await search_box.click(delay=random.randint(60, 160))
+            await asyncio.sleep(random.uniform(0.3, 0.9))
+            for char in warmup_query:
+                await page.keyboard.type(char, delay=random.randint(80, 220))
+            await asyncio.sleep(random.uniform(0.4, 1.2))
+            await page.keyboard.press("Enter")
+            await page.wait_for_load_state("domcontentloaded", timeout=15000)
+            await asyncio.sleep(random.uniform(1.5, 3.5))
+        except Exception:
+            query = quote(warmup_query, safe="")
+            await self._navigate(f"{base_url}/search?q={query}&hl=en-GB&gl=GB")
+
+    async def browser_fingerprint(self) -> dict:
+        """Return a small browser fingerprint sample for diagnostics."""
+        return await self._evaluate(
+            """
+            (() => ({
+                webdriver: navigator.webdriver,
+                plugins: navigator.plugins ? navigator.plugins.length : 0,
+                mimeTypes: navigator.mimeTypes ? navigator.mimeTypes.length : 0,
+                languages: navigator.languages,
+                platform: navigator.platform,
+                hardwareConcurrency: navigator.hardwareConcurrency,
+                deviceMemory: navigator.deviceMemory,
+                screen: {
+                    width: screen.width,
+                    height: screen.height,
+                    availWidth: screen.availWidth,
+                    availHeight: screen.availHeight,
+                },
+                viewport: {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    deviceScaleFactor: window.devicePixelRatio,
+                },
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                locale: Intl.DateTimeFormat().resolvedOptions().locale,
+                webglVendor: (() => {
+                    const canvas = document.createElement('canvas');
+                    const gl = canvas.getContext('webgl');
+                    if (!gl) return null;
+                    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                    return ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : null;
+                })(),
+                webglRenderer: (() => {
+                    const canvas = document.createElement('canvas');
+                    const gl = canvas.getContext('webgl');
+                    if (!gl) return null;
+                    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                    return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null;
+                })(),
+            }))()
+            """
+        )
+
     async def ask(self, question: str, timeout_ms: int = 45000) -> str:
         """Ask a question via Google AI Mode."""
-        if self._browser_backend == "request":
-            return await self._ask_request(question, timeout_ms)
-
         async with self._lock:
-            js = _ASK_JS.replace("%QUERY%", json.dumps(question))
+            base_url = _google_base_url()
+            js = (
+                _ASK_JS
+                .replace("%SEARCH_URL%", json.dumps(f"{base_url}/search"))
+                .replace("%ASYNC_URL%", json.dumps(f"{base_url}/async/folwr"))
+                .replace("%QUERY%", json.dumps(question))
+            )
             try:
                 result = await asyncio.wait_for(self._evaluate(js), timeout=timeout_ms / 1000)
             except asyncio.TimeoutError:
@@ -439,53 +754,6 @@ class AIModeEngine:
                 raise RuntimeError(f"{result['error']}: {result.get('message','')}")
             return result.get("answer", "")
         return str(result) if result else ""
-
-    async def _ask_request(self, question: str, timeout_ms: int = 45000) -> str:
-        """Ask through direct HTTP requests. This is simpler but less resilient."""
-        if self._http_client is None:
-            await self._start_request_backend()
-
-        params = {"q": question, "hl": "en", "gl": "us", "udm": "50", "aep": "1", "ntc": "1"}
-        r1 = await asyncio.wait_for(
-            self._http_client.get("https://www.google.com.hk/search", params=params),
-            timeout=timeout_ms / 1000,
-        )
-        r1.raise_for_status()
-        html = r1.text
-
-        def match(pattern: str) -> str:
-            found = re.search(pattern, html)
-            return found.group(1) if found else ""
-
-        srtst = match(r'data-srtst="([^"]+)"')
-        if not srtst:
-            raise RuntimeError("request backend could not extract AI Mode token")
-
-        query = {
-            "srtst": srtst,
-            "garc": match(r'data-garc="([^"]+)"'),
-            "mlro": match(r'data-lro-token="([^"]+)"'),
-            "mlros": match(r'data-lro-signature="([^"]+)"'),
-            "ei": match(r'data-ei="([^"]+)"'),
-            "q": question,
-            "yv": "3",
-            "vet": "1" + match(r'aria-current="page"[^>]*data-ved="([^"]+)"') + "..i",
-            "ved": match(r'aria-current="page"[^>]*data-ved="([^"]+)"'),
-            "aep": "1",
-            "gl": "us",
-            "hl": "en",
-            "sca_esv": match(r"sca_esv=([a-f0-9]+)"),
-            "udm": "50",
-            "stkp": match(r'data-stkp="([^"]+)"'),
-            "cs": "0",
-            "async": "_fmt:adl,_xsrf:" + match(r'data-xsrf-folwr-token="([^"]+)"'),
-        }
-        r2 = await self._http_client.get("https://www.google.com.hk/async/folwr", params=query)
-        r2.raise_for_status()
-        text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", r2.text, flags=re.I | re.S)
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = re.sub(r"\s+", " ", text).strip()
-        return text
 
     async def ask_stream(self, question: str, timeout_ms: int = 45000):
         """Yield answer in one chunk."""
@@ -517,9 +785,6 @@ class AIModeEngine:
                 pass
             self._playwright = None
         self._playwright_page = None
-        if self._http_client:
-            await self._http_client.aclose()
-            self._http_client = None
         if self._user_data_dir:
             if self._owns_user_data_dir:
                 shutil.rmtree(self._user_data_dir, ignore_errors=True)
@@ -532,7 +797,7 @@ async def e2e_test():
 
     cdp = os.environ.get("CDP_URL")
     channel = os.environ.get("BROWSER_CHANNEL", "chrome")
-    headless = os.environ.get("HEADLESS", "1") != "0"
+    headless = os.environ.get("HEADLESS", "0") != "0"
     browser_backend = os.environ.get("GEMINI_SEARCH_BROWSER_BACKEND")
     user_data_dir = os.environ.get("GEMINI_SEARCH_USER_DATA_DIR")
     proxy_server = os.environ.get("GEMINI_SEARCH_PROXY_SERVER")
@@ -552,6 +817,11 @@ async def e2e_test():
         proxy_server=proxy_server,
     )
     print(f"  Ready in {time.time()-t0:.1f}s")
+    try:
+        fingerprint = await engine.browser_fingerprint()
+        print(f"  Fingerprint: {json.dumps(fingerprint, ensure_ascii=False)}")
+    except Exception as exc:
+        print(f"  Fingerprint check failed: {exc}")
 
     tests = [
         ("math", "what is 7*8? answer only the number"),
@@ -559,6 +829,7 @@ async def e2e_test():
         ("chinese", "用中文简要介绍量子计算, 不超过2句话"),
     ]
     passed = 0
+    failures = 0
     for name, q in tests:
         t0 = time.time()
         try:
@@ -567,7 +838,13 @@ async def e2e_test():
             if ans:
                 passed += 1
         except Exception as e:
+            failures += 1
             print(f"  [{name}] ERROR: {e}")
+
+    if failures and not headless:
+        await engine.wait_for_manual_inspection(
+            "One or more tests failed. Complete CAPTCHA or inspect the browser window."
+        )
 
     await engine.stop()
     print(f"\n{'PASSED' if passed == len(tests) else 'PARTIAL'} ({passed}/{len(tests)})")

@@ -14,11 +14,18 @@ services:
       BROWSER_CHANNEL: chromium
       HEADLESS: "1"
       GEMINI_SEARCH_BROWSER_BACKEND: ${GEMINI_SEARCH_BROWSER_BACKEND:-playwright}
+      GEMINI_SEARCH_PROVIDER: ${GEMINI_SEARCH_PROVIDER:-google_ai_mode}
+      GEMINI_SEARCH_GOOGLE_BASE_URL: ${GEMINI_SEARCH_GOOGLE_BASE_URL:-https://www.google.co.uk}
       GEMINI_SEARCH_USER_DATA_DIR: /data/chrome-profile
       GEMINI_SEARCH_CDP_PORT: "19250"
       GEMINI_SEARCH_PROFILE_ROTATION_SECONDS: ${GEMINI_SEARCH_PROFILE_ROTATION_SECONDS:-0}
-      GEMINI_SEARCH_CHROME_EXTRA_ARGS: "--no-sandbox --disable-dev-shm-usage --disable-gpu"
+      GEMINI_SEARCH_CHROME_EXTRA_ARGS: "--no-sandbox --disable-dev-shm-usage --enable-gpu --use-gl=angle --enable-webgl --disable-blink-features=AutomationControlled"
       GEMINI_SEARCH_PROXY_SERVER: ${GEMINI_SEARCH_PROXY_SERVER:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      TAVILY_SEARCH_DEPTH: ${TAVILY_SEARCH_DEPTH:-basic}
     volumes:
       - chrome-profile:/data/chrome-profile
 

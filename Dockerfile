@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     BROWSER_CHANNEL=chromium \
     HEADLESS=1 \
     GEMINI_SEARCH_BROWSER_BACKEND=playwright \
-    GEMINI_SEARCH_CHROME_EXTRA_ARGS="--no-sandbox --disable-dev-shm-usage --disable-gpu"
+    GEMINI_SEARCH_CHROME_EXTRA_ARGS="--no-sandbox --disable-dev-shm-usage --enable-gpu --use-gl=angle --enable-webgl --disable-blink-features=AutomationControlled"
 
 WORKDIR /app
 

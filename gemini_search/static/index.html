@@ -20,10 +20,43 @@
         <form id="runtimeForm" class="panel">
           <h2>运行时配置</h2>
           <label>
+            搜索引擎
+            <select name="search_provider">
+              <option value="google_ai_mode">Google AI Mode browser</option>
+              <option value="gemini_grounding">Gemini + Google Search grounding</option>
+              <option value="brave">Brave Search</option>
+              <option value="tavily">Tavily</option>
+            </select>
+          </label>
+          <label>
+            Gemini API Key
+            <input name="gemini_api_key" type="password" autocomplete="off" placeholder="GEMINI_API_KEY">
+          </label>
+          <label>
+            Gemini Model
+            <input name="gemini_model" placeholder="gemini-2.5-flash">
+          </label>
+          <label>
+            Brave API Key
+            <input name="brave_api_key" type="password" autocomplete="off" placeholder="BRAVE_API_KEY">
+          </label>
+          <label>
+            Tavily API Key
+            <input name="tavily_api_key" type="password" autocomplete="off" placeholder="TAVILY_API_KEY">
+          </label>
+          <label>
+            Tavily Search Depth
+            <select name="tavily_search_depth">
+              <option value="basic">basic</option>
+              <option value="advanced">advanced</option>
+            </select>
+          </label>
+
+          <h2>浏览器抓取配置</h2>
+          <label>
             后端
             <select name="browser_backend">
               <option value="playwright">playwright</option>
-              <option value="request">request</option>
               <option value="cloakbrowser">cloakbrowser</option>
             </select>
           </label>

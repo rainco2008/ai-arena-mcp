@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe google.com.hk with undetected-chromedriver and classify CAPTCHA state.
+"""Probe google.co.uk with undetected-chromedriver and classify CAPTCHA state.
 
 The probe launches Chrome through undetected-chromedriver, visits a normal
 Google warmup search and an AI Mode search, then emits a JSON summary. It is a
@@ -154,7 +154,7 @@ def _classify(html: str, url: str, title: str) -> dict[str, Any]:
     hits: list[str] = []
     if parsed.path.startswith("/sorry/"):
         hits.append("url:/sorry/")
-    if "google.com/sorry/" in lower_url or "google.com.hk/sorry/" in lower_url:
+    if "google.com/sorry/" in lower_url or "google.com.hk/sorry/" in lower_url or "google.co.uk/sorry/" in lower_url:
         hits.append("url:google_sorry")
     for pattern in CAPTCHA_TEXT_PATTERNS:
         if pattern in lower_html:
@@ -266,7 +266,10 @@ def main(argv: list[str] | None = None) -> int:
         driver.set_page_load_timeout(args.timeout)
         result["stages"].append({"name": "launch", "ok": True, "elapsed_sec": round(time.time() - start, 3)})
 
-        warmup_url = "https://www.google.com.hk/search?q=hello&hl=en&gl=us"
+        warmup_url = os.environ.get(
+            "GEMINI_SEARCH_GOOGLE_WARMUP_URL",
+            "https://www.google.co.uk/search?q=latest%20UK%20technology%20news%20and%20weather%20in%20London%20this%20week&hl=en-GB&gl=GB",
+        )
         start = time.time()
         driver.get(warmup_url)
         WebDriverWait(driver, args.timeout).until(lambda browser: browser.execute_script("return document.readyState") in ("interactive", "complete"))
@@ -282,7 +285,8 @@ def main(argv: list[str] | None = None) -> int:
         }
         result["stages"].append(warmup)
 
-        ai_url = "https://www.google.com.hk/search?q=" + quote(args.query, safe="") + "&hl=en&gl=us&udm=50&aep=1&ntc=1"
+        google_base = os.environ.get("GEMINI_SEARCH_GOOGLE_BASE_URL", "https://www.google.co.uk").rstrip("/")
+        ai_url = google_base + "/search?q=" + quote(args.query, safe="") + "&hl=en-GB&gl=GB&udm=50&aep=1&ntc=1"
         start = time.time()
         driver.get(ai_url)
         WebDriverWait(driver, args.timeout).until(lambda browser: browser.execute_script("return document.readyState") in ("interactive", "complete"))
