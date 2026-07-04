@@ -19,7 +19,6 @@ data/
 *.sqlite3
 *.db
 *.log
-vendor/n8n-workflows/
 workflows/template-index/
 GeminiSearch.spec
 .codex/
