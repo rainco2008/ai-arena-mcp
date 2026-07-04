@@ -1,0 +1,22 @@
+{
+  "name": "ai-arena-mcp-content-factory",
+  "private": true,
+  "description": "Local development helpers for n8n and n8n-mcp content factory workflows.",
+  "integrations": {
+    "n8nMcp": "https://github.com/czlonkowski/n8n-mcp",
+    "n8nWorkflows": "https://github.com/Zie619/n8n-workflows",
+    "markitdown": "https://github.com/microsoft/markitdown"
+  },
+  "scripts": {
+    "n8n": "n8n start",
+    "n8n:mcp:stdio": "n8n-mcp",
+    "n8n:mcp:http": "node scripts/start_n8n_mcp_http.mjs",
+    "n8n:validate-workflows": "node scripts/validate_n8n_workflows_with_mcp.mjs",
+    "n8n:index-templates": ".\\scripts\\index_n8n_workflow_templates.cmd",
+    "n8n:sync-templates": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\sync_n8n_workflows_vendor.ps1"
+  },
+  "dependencies": {
+    "n8n": "2.28.6",
+    "n8n-mcp": "2.63.0"
+  }
+}

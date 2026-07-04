@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 01 Topic Discovery",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-topic-discovery",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd discover --seeds \"AI内容工厂,n8n自动化,MCP工作流\""
+      },
+      "id": "discover-topics",
+      "name": "Discover Topics",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "content": "Creates seed topics in data/content_factory.sqlite. Edit the seed list before activating in production."
+      },
+      "id": "topic-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Discover Topics", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

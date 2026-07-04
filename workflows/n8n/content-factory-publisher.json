@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 07 Publisher",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-publisher",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd publish --limit 10"
+      },
+      "id": "publish-approved",
+      "name": "Publish Approved Content",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "content": "Publishes approved content. Set CONTENT_FACTORY_PUBLISH_WEBHOOK for a real CMS/social webhook, or leave it unset for local manual:// placeholder publishing during MVP verification."
+      },
+      "id": "publisher-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Publish Approved Content", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

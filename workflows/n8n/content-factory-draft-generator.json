@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 03 Draft Generator",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-draft-generator",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd draft --channel blog"
+      },
+      "id": "draft-next-content",
+      "name": "Draft Next Content",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "content": "Builds a blog draft from stored research assets and moves the topic/content into reviewing."
+      },
+      "id": "draft-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Draft Next Content", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

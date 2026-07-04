@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 04 Quality Gate",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-quality-gate",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd quality-gate --limit 10 --min-chars 500"
+      },
+      "id": "run-quality-gate",
+      "name": "Run Quality Gate",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "content": "Writes automated review records. Human approval is still required before publishing."
+      },
+      "id": "quality-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Run Quality Gate", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

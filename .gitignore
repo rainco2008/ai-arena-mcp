@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+node_modules/
 .venv/
 .venv-windows-build/
 .pytest_cache/
@@ -13,7 +14,13 @@ dist/
 browsers/
 logs/
 profiles/
+data/
+*.sqlite
+*.sqlite3
+*.db
 *.log
+vendor/n8n-workflows/
+workflows/template-index/
 GeminiSearch.spec
 .codex/
 *.egg-info/
