@@ -1,7 +1,7 @@
 [project]
 name = "gemini-search-mcp"
 version = "0.4.0"
-description = "MCP server for web search powered by Google AI Mode (Gemini). Free, unlimited, no API key."
+description = "MCP server and OpenAI-compatible API for web search and web page scraping."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -10,21 +10,32 @@ dependencies = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "mcp[cli]>=1.0",
-    "playwright>=1.45",
-    "playwright-stealth>=2.0",
+    "scrapling[all]>=0.3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/rainco2008/ai-arena-mcp"
+MarkItDown = "https://github.com/microsoft/markitdown"
+N8nMcp = "https://github.com/czlonkowski/n8n-mcp"
+N8nWorkflows = "https://github.com/Zie619/n8n-workflows"
 
 [project.optional-dependencies]
 cloakbrowser = [
     "cloakbrowser",
 ]
+content-factory = [
+    "markitdown[pdf,docx,pptx,xlsx]>=0.1.6",
+]
 all = [
+    "scrapling[all]>=0.3",
     "cloakbrowser",
+    "markitdown[pdf,docx,pptx,xlsx]>=0.1.6",
 ]
 
 [project.scripts]
 gemini-search = "gemini_search.server:main"
 gemini-search-mcp = "gemini_search_mcp:main"
+content-factory = "content_factory.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -32,4 +43,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["gemini_search*", "gemini_search_mcp*"]
+include = ["gemini_search*", "gemini_search_mcp*", "content_factory*"]

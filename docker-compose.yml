@@ -7,9 +7,57 @@ services:
     shm_size: "2gb"
     environment:
       - PYTHONUNBUFFERED=1
-      - GEMINI_SEARCH_PROVIDER=${GEMINI_SEARCH_PROVIDER:-google_ai_mode}
+      - GEMINI_SEARCH_PROVIDER=${GEMINI_SEARCH_PROVIDER:-scrapling}
+      - GEMINI_SEARCH_SCRAPE_BACKEND=${GEMINI_SEARCH_SCRAPE_BACKEND:-scrapling}
+      - WEB_CHAT_PROVIDER=${WEB_CHAT_PROVIDER:-disabled}
+      - WEB_CHAT_BACKEND=${WEB_CHAT_BACKEND:-playwright}
+      - WEB_CHAT_HEADLESS=${WEB_CHAT_HEADLESS:-1}
+      - WEB_CHAT_PROFILE_DIR=${WEB_CHAT_PROFILE_DIR:-/data/web-chat}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
       - BRAVE_API_KEY=${BRAVE_API_KEY:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
       - TAVILY_SEARCH_DEPTH=${TAVILY_SEARCH_DEPTH:-basic}
+    volumes:
+      - ./data:/data
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Europe/London}
+      - TZ=${TZ:-Europe/London}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./data:/data
+    depends_on:
+      - gemini-search
+
+  n8n-mcp:
+    image: ghcr.io/czlonkowski/n8n-mcp:latest
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - N8N_MODE=true
+      - MCP_MODE=http
+      - N8N_API_URL=http://n8n:5678
+      - N8N_API_KEY=${N8N_API_KEY:-}
+      - WEBHOOK_SECURITY_MODE=permissive
+      - MCP_AUTH_TOKEN=${N8N_MCP_AUTH_TOKEN:-local-dev-n8n-mcp-token-change-me-123456}
+      - AUTH_TOKEN=${N8N_MCP_AUTH_TOKEN:-local-dev-n8n-mcp-token-change-me-123456}
+      - PORT=3000
+      - LOG_LEVEL=${N8N_MCP_LOG_LEVEL:-info}
+    depends_on:
+      - n8n
+
+volumes:
+  n8n-data:

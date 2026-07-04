@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 08 Document Ingestion",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-document-ingestion",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd ingest-document --topic-id REPLACE_TOPIC_ID --file data\\inbox\\sample-source.md"
+      },
+      "id": "ingest-document",
+      "name": "Ingest Document With MarkItDown",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [280, 0]
+    },
+    {
+      "parameters": {
+        "content": "Converts a file under data/inbox to Markdown with Microsoft MarkItDown and stores it as a research asset. Replace REPLACE_TOPIC_ID and the file path before running."
+      },
+      "id": "document-ingestion-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Ingest Document With MarkItDown", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

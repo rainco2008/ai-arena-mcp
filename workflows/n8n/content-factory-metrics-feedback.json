@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 05 Metrics Feedback",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-metrics-feedback",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd metrics-feedback --limit 50"
+      },
+      "id": "collect-metrics",
+      "name": "Collect Metrics Placeholder",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "content": "Placeholder workflow for performance-data backfill. Replace with platform API pulls when channels are connected."
+      },
+      "id": "metrics-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Collect Metrics Placeholder", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

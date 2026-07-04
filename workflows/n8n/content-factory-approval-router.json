@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 06 Approval Router",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-approval-router",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd approval-router --limit 10"
+      },
+      "id": "route-approvals",
+      "name": "Route Approval Items",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "content": "Lists content awaiting human review. Replace the placeholder with Slack, email, or Feishu approval nodes when channel credentials are available."
+      },
+      "id": "approval-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Route Approval Items", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

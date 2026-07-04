@@ -1,0 +1,42 @@
+{
+  "name": "Content Factory - 02 Research Pack",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-research-pack",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "scripts\\run_content_factory_task.cmd research --search-api http://127.0.0.1:8080"
+      },
+      "id": "research-topic",
+      "name": "Research Next Topic",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "content": "Reads the next topic with status=new, calls this project's OpenAI-compatible search API, stores a research asset, then moves the topic to drafting."
+      },
+      "id": "research-note",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -180]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Research Next Topic", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
