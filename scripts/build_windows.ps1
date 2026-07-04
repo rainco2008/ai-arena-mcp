@@ -2,7 +2,6 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $VenvDir = Join-Path $ProjectRoot ".venv-windows-build"
-$BrowsersDir = Join-Path $ProjectRoot "browsers"
 $DistRoot = Join-Path $ProjectRoot "dist"
 $AppDist = Join-Path $DistRoot "GeminiSearch"
 
@@ -58,12 +57,9 @@ $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
 $VenvPip = Join-Path $VenvDir "Scripts\pip.exe"
 
 & $VenvPython -m pip install --upgrade pip
-& $VenvPip install -e ".[cloakbrowser]"
+& $VenvPip install -e ".[all]"
 & $VenvPip install pyinstaller
-
-New-Item -ItemType Directory -Force $BrowsersDir | Out-Null
-$env:PLAYWRIGHT_BROWSERS_PATH = $BrowsersDir
-& $VenvPython -m playwright install chromium
+& (Join-Path $VenvDir "Scripts\scrapling.exe") install
 
 if (Test-Path $AppDist) {
     Remove-Item -Recurse -Force $AppDist
@@ -75,7 +71,6 @@ if (Test-Path $AppDist) {
     --add-data "gemini_search\static;gemini_search\static" `
     desktop_launcher.py
 
-Copy-Item -Recurse -Force $BrowsersDir (Join-Path $AppDist "browsers")
 New-Item -ItemType Directory -Force (Join-Path $AppDist "profiles\default") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $AppDist "logs") | Out-Null
 

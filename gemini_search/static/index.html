@@ -1,28 +1,28 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Gemini Search MCP Console</title>
+    <title>Search Scraper MCP Console</title>
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
     <main class="shell">
       <section class="topbar">
         <div>
-          <h1>Gemini Search MCP Console</h1>
+          <h1>Search Scraper MCP Console</h1>
           <p id="statusText">Loading...</p>
         </div>
-        <button id="refreshBtn" type="button">刷新</button>
+        <button id="refreshBtn" type="button">Refresh</button>
       </section>
 
       <section class="grid">
         <form id="runtimeForm" class="panel">
-          <h2>运行时配置</h2>
+          <h2>Runtime</h2>
           <label>
-            搜索引擎
+            Search provider
             <select name="search_provider">
-              <option value="google_ai_mode">Google AI Mode browser</option>
+              <option value="scrapling">Scrapling HTML search</option>
               <option value="gemini_grounding">Gemini + Google Search grounding</option>
               <option value="brave">Brave Search</option>
               <option value="tavily">Tavily</option>
@@ -52,64 +52,76 @@
             </select>
           </label>
 
-          <h2>浏览器抓取配置</h2>
+          <h2>Scraping</h2>
           <label>
-            后端
-            <select name="browser_backend">
-              <option value="playwright">playwright</option>
+            Backend
+            <select name="scrape_backend">
+              <option value="scrapling">scrapling</option>
+              <option value="scrapling_chromium">scrapling chromium</option>
+              <option value="scrapling_stealthy">scrapling stealthy</option>
               <option value="cloakbrowser">cloakbrowser</option>
-            </select>
-          </label>
-          <label>
-            浏览器通道
-            <select name="channel">
-              <option value="chromium">chromium</option>
-              <option value="chrome">chrome</option>
-              <option value="msedge">msedge</option>
             </select>
           </label>
           <label class="check">
             <input name="headless" type="checkbox">
-            <span>无头模式</span>
+            <span>Headless browser scraping</span>
           </label>
           <label>
-            Profile 目录
-            <input name="user_data_dir" placeholder="/data/chrome-profile">
-          </label>
-          <label>
-            代理
+            Proxy
             <input name="proxy_server" placeholder="socks5://127.0.0.1:7897">
           </label>
+
+          <h2>Web Chat</h2>
           <label>
-            本地 CDP URL
-            <input name="cdp_url" placeholder="http://127.0.0.1:9222">
+            Provider for ask
+            <select name="web_chat_provider">
+              <option value="disabled">disabled</option>
+              <option value="deepseek">DeepSeek website</option>
+              <option value="chatgpt">ChatGPT website</option>
+              <option value="gemini">Gemini website</option>
+            </select>
+          </label>
+          <label>
+            Browser backend
+            <select name="web_chat_backend">
+              <option value="playwright">playwright</option>
+              <option value="cloakbrowser">cloakbrowser</option>
+            </select>
+          </label>
+          <label class="check">
+            <input name="web_chat_headless" type="checkbox">
+            <span>Headless web chat</span>
+          </label>
+          <label>
+            Profile directory
+            <input name="web_chat_profile_dir" placeholder="profiles/web-chat/deepseek">
           </label>
           <div class="actions">
-            <button type="submit">应用并重启</button>
-            <button id="restartBtn" type="button">仅重启</button>
+            <button type="submit">Apply and restart</button>
+            <button id="restartBtn" type="button">Restart only</button>
           </div>
         </form>
 
         <section class="panel">
-          <h2>测试请求</h2>
+          <h2>Test Request</h2>
           <label>
             Prompt
-            <textarea id="promptInput" rows="8">今天有哪些重要 AI 新闻？</textarea>
+            <textarea id="promptInput" rows="8">latest important AI news today</textarea>
           </label>
           <label>
-            超时毫秒
+            Timeout milliseconds
             <input id="timeoutInput" type="number" min="1000" step="1000" value="45000">
           </label>
           <div class="actions">
-            <button id="testBtn" type="button">发送测试</button>
-            <button id="modelsBtn" type="button">检查模型</button>
+            <button id="testBtn" type="button">Send test</button>
+            <button id="modelsBtn" type="button">Check models</button>
           </div>
         </section>
       </section>
 
       <section class="panel output-panel">
         <div class="output-head">
-          <h2>输出</h2>
+          <h2>Output</h2>
           <span id="elapsedText"></span>
         </div>
         <pre id="output"></pre>

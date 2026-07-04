@@ -1,1 +1,1 @@
-"""Gemini Search - web search engine powered by Google AI Mode."""
+"""Search and scraping service backed by Scrapling and optional search APIs."""

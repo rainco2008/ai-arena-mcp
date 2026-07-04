@@ -44,18 +44,19 @@ function setBusy(busy) {
 }
 
 function fillForm(config) {
-  form.search_provider.value = config.search_provider || "google_ai_mode";
+  form.search_provider.value = config.search_provider || "scrapling";
   form.gemini_api_key.value = config.gemini_api_key || "";
   form.gemini_model.value = config.gemini_model || "gemini-2.5-flash";
   form.brave_api_key.value = config.brave_api_key || "";
   form.tavily_api_key.value = config.tavily_api_key || "";
   form.tavily_search_depth.value = config.tavily_search_depth || "basic";
-  form.browser_backend.value = config.browser_backend || "playwright";
-  form.channel.value = config.channel || "chrome";
+  form.scrape_backend.value = config.scrape_backend || "scrapling";
   form.headless.checked = config.headless === true;
-  form.user_data_dir.value = config.user_data_dir || "profiles/default";
   form.proxy_server.value = config.proxy_server || "";
-  form.cdp_url.value = config.cdp_url || "";
+  form.web_chat_provider.value = config.web_chat_provider || "disabled";
+  form.web_chat_backend.value = config.web_chat_backend || "playwright";
+  form.web_chat_headless.checked = config.web_chat_headless === true;
+  form.web_chat_profile_dir.value = config.web_chat_profile_dir || "";
 }
 
 async function refresh() {
@@ -65,7 +66,7 @@ async function refresh() {
   ]);
   fillForm(runtime);
   const state = health.ok ? "running" : "not ready";
-  statusText.textContent = `Provider: ${health.search_provider || runtime.search_provider} | Browser: ${health.backend || runtime.browser_backend} | ${state}`;
+  statusText.textContent = `Search: ${health.search_provider || runtime.search_provider} | Scraper: ${health.backend || runtime.scrape_backend} | Ask: ${health.web_chat_provider || runtime.web_chat_provider || "disabled"} | ${state}`;
   if (health.last_error) setOutput({ last_error: health.last_error });
 }
 
@@ -80,12 +81,13 @@ form.addEventListener("submit", async (event) => {
     brave_api_key: form.brave_api_key.value,
     tavily_api_key: form.tavily_api_key.value,
     tavily_search_depth: form.tavily_search_depth.value,
-    browser_backend: form.browser_backend.value,
-    channel: form.channel.value,
+    scrape_backend: form.scrape_backend.value,
     headless: form.headless.checked,
-    user_data_dir: form.user_data_dir.value,
     proxy_server: form.proxy_server.value,
-    cdp_url: form.cdp_url.value,
+    web_chat_provider: form.web_chat_provider.value,
+    web_chat_backend: form.web_chat_backend.value,
+    web_chat_headless: form.web_chat_headless.checked,
+    web_chat_profile_dir: form.web_chat_profile_dir.value,
   };
   try {
     const data = await api("/api/runtime", {

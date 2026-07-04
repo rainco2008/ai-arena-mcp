@@ -1,17 +1,24 @@
-"""Search provider router for API-backed and browser-backed engines."""
+"""Search and scraping provider router backed by Scrapling and search APIs."""
 from __future__ import annotations
 
 import asyncio
 import json
 import os
+import re
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import quote_plus, urlencode, urljoin
 
-from .engine import AIModeEngine
+from .web_chat import WebChatProvider, normalize_web_chat_provider
 
 
 MASKED_VALUE = "********"
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+)
 
 
 def mask_secret(value: Optional[str]) -> str:
@@ -27,11 +34,11 @@ def merge_secret(current: Optional[str], incoming: Optional[str]) -> Optional[st
 
 
 def normalize_search_provider(provider: Optional[str]) -> str:
-    value = (provider or "google_ai_mode").strip().lower()
+    value = (provider or "scrapling").strip().lower()
     aliases = {
-        "google": "google_ai_mode",
-        "google_ai_mode": "google_ai_mode",
-        "playwright": "google_ai_mode",
+        "scrapling": "scrapling",
+        "html": "scrapling",
+        "duckduckgo": "scrapling",
         "gemini": "gemini_grounding",
         "gemini_grounding": "gemini_grounding",
         "google_search_grounding": "gemini_grounding",
@@ -40,7 +47,28 @@ def normalize_search_provider(provider: Optional[str]) -> str:
     }
     if value not in aliases:
         raise ValueError(
-            "search_provider must be one of: google_ai_mode, gemini_grounding, brave, tavily"
+            "search_provider must be one of: scrapling, gemini_grounding, brave, tavily"
+        )
+    return aliases[value]
+
+
+def normalize_scrape_backend(backend: Optional[str]) -> str:
+    value = (backend or "scrapling").strip().lower()
+    aliases = {
+        "scrapling": "scrapling",
+        "static": "scrapling",
+        "fetcher": "scrapling",
+        "scrapling_chromium": "scrapling_chromium",
+        "chromium": "scrapling_chromium",
+        "dynamic": "scrapling_chromium",
+        "scrapling_stealthy": "scrapling_stealthy",
+        "stealthy": "scrapling_stealthy",
+        "cloak": "cloakbrowser",
+        "cloakbrowser": "cloakbrowser",
+    }
+    if value not in aliases:
+        raise ValueError(
+            "scrape_backend must be one of: scrapling, scrapling_chromium, scrapling_stealthy, cloakbrowser"
         )
     return aliases[value]
 
@@ -66,13 +94,56 @@ def _http_json(url: str, payload: Optional[dict] = None, headers: Optional[dict]
     return json.loads(body) if body else {}
 
 
+def _clean_text(value: str, limit: int = 8000) -> str:
+    text = re.sub(r"\s+", " ", value or "").strip()
+    return text[:limit].rstrip()
+
+
+def _first_text(node, selectors: list[str]) -> str:
+    for selector in selectors:
+        try:
+            value = node.css(selector).get()
+        except Exception:
+            value = None
+        if value:
+            return _clean_text(str(value), 500)
+    return ""
+
+
+def _all_text(page, selectors: list[str]) -> str:
+    parts: list[str] = []
+    for selector in selectors:
+        try:
+            values = page.css(selector).getall()
+        except Exception:
+            values = []
+        for value in values:
+            cleaned = _clean_text(str(value), 1000)
+            if cleaned:
+                parts.append(cleaned)
+    return "\n\n".join(parts)
+
+
+async def _maybe_await(value):
+    if hasattr(value, "__await__"):
+        return await value
+    return value
+
+
+@dataclass
+class ScrapedPage:
+    url: str
+    title: str
+    text: str
+
+
 class SearchEngine:
-    """Routes ask() calls to a configured search provider."""
+    """Routes search and scraping calls to Scrapling or API-backed providers."""
 
     def __init__(self):
-        self._browser_engine: Optional[AIModeEngine] = None
         self._config: dict = {}
         self._lock = asyncio.Lock()
+        self._web_chat = WebChatProvider()
 
     @property
     def provider(self) -> str:
@@ -80,34 +151,18 @@ class SearchEngine:
 
     async def start(self, **config):
         self._config = dict(config)
-        provider = self.provider
-        if provider == "google_ai_mode":
-            self._browser_engine = AIModeEngine()
-            await self._browser_engine.start(
-                cdp_url=config.get("cdp_url"),
-                headless=config["headless"],
-                channel=config["channel"],
-                user_data_dir=config.get("user_data_dir"),
-                browser_backend=config.get("browser_backend"),
-                proxy_server=config.get("proxy_server"),
-            )
-            return
-        self._browser_engine = None
         self._validate_api_provider()
+        await self._web_chat.start(**config)
 
     async def stop(self):
-        if self._browser_engine is not None:
-            await self._browser_engine.stop()
-            self._browser_engine = None
+        await self._web_chat.stop()
 
     async def ask(self, question: str, timeout_ms: int = 45000) -> str:
         async with self._lock:
             provider = self.provider
-            if provider == "google_ai_mode":
-                if self._browser_engine is None:
-                    raise RuntimeError("Google AI Mode browser engine is not ready")
-                return await self._browser_engine.ask(question, timeout_ms=timeout_ms)
             timeout = max(1, int(timeout_ms / 1000))
+            if provider == "scrapling":
+                return await asyncio.to_thread(self._ask_scrapling, question, timeout)
             if provider == "gemini_grounding":
                 return await asyncio.to_thread(self._ask_gemini_grounding, question, timeout)
             if provider == "brave":
@@ -120,6 +175,31 @@ class SearchEngine:
         text = await self.ask(question, timeout_ms)
         if text:
             yield text
+
+    async def chat(self, prompt: str, timeout_ms: int = 120000) -> str:
+        provider = normalize_web_chat_provider(self._config.get("web_chat_provider"))
+        if provider == "disabled":
+            return await self.ask(prompt, timeout_ms=timeout_ms)
+        return await self._web_chat.ask(prompt, timeout_ms=timeout_ms)
+
+    async def chat_stream(self, prompt: str, timeout_ms: int = 120000):
+        text = await self.chat(prompt, timeout_ms)
+        if text:
+            yield text
+
+    async def scrape(self, url: str, selector: Optional[str] = None, timeout_ms: int = 45000) -> str:
+        timeout = max(1, int(timeout_ms / 1000))
+        backend = normalize_scrape_backend(self._config.get("scrape_backend"))
+        if backend == "cloakbrowser":
+            page = await self._scrape_url_cloakbrowser(url, selector, timeout)
+        else:
+            page = await asyncio.to_thread(self._scrape_url, url, selector, timeout, backend)
+        lines = [f"URL: {page.url}"]
+        if page.title:
+            lines.append(f"Title: {page.title}")
+        lines.append("")
+        lines.append(page.text or "(no readable text found)")
+        return "\n".join(lines)
 
     def _validate_api_provider(self):
         provider = self.provider
@@ -141,6 +221,123 @@ class SearchEngine:
     @property
     def _tavily_api_key(self) -> Optional[str]:
         return self._config.get("tavily_api_key") or os.environ.get("TAVILY_API_KEY")
+
+    def _scrapling_fetcher(self, backend: str = "scrapling"):
+        try:
+            from scrapling.fetchers import DynamicFetcher, Fetcher, StealthyFetcher
+        except ImportError as exc:
+            raise RuntimeError(
+                'Scrapling fetchers are required. Install with: pip install "scrapling[all]"'
+            ) from exc
+        if backend == "scrapling_chromium":
+            return DynamicFetcher
+        if backend == "scrapling_stealthy":
+            return StealthyFetcher
+        return Fetcher
+
+    def _fetch_with_scrapling(self, url: str, timeout: int, backend: str):
+        Fetcher = self._scrapling_fetcher(backend)
+        kwargs = {
+            "timeout": timeout,
+            "headers": {"User-Agent": DEFAULT_USER_AGENT},
+        }
+        proxy = self._config.get("proxy_server") or os.environ.get("GEMINI_SEARCH_PROXY_SERVER")
+        if proxy:
+            kwargs["proxy"] = proxy
+        if backend in ("scrapling_chromium", "scrapling_stealthy"):
+            kwargs["headless"] = bool(self._config.get("headless", True))
+            kwargs["network_idle"] = True
+            fetch = getattr(Fetcher, "fetch", None)
+            if fetch is None:
+                raise RuntimeError(f"{backend} does not expose fetch()")
+            return fetch(url, **kwargs)
+        return Fetcher.get(url, **kwargs)
+
+    def _scrape_url(self, url: str, selector: Optional[str], timeout: int, backend: str) -> ScrapedPage:
+        page = self._fetch_with_scrapling(url, timeout, backend)
+        title = _first_text(page, ["title::text", "h1::text"])
+        if selector:
+            text = _all_text(page, [selector])
+        else:
+            text = _all_text(page, [
+                "main ::text",
+                "article ::text",
+                "body ::text",
+            ])
+        return ScrapedPage(url=str(getattr(page, "url", url) or url), title=title, text=_clean_text(text))
+
+    async def _scrape_url_cloakbrowser(self, url: str, selector: Optional[str], timeout: int) -> ScrapedPage:
+        try:
+            import cloakbrowser
+        except ImportError as exc:
+            raise RuntimeError(
+                'CloakBrowser backend requires: pip install -e ".[cloakbrowser]"'
+            ) from exc
+
+        kwargs = {
+            "headless": bool(self._config.get("headless", True)),
+        }
+        proxy = self._config.get("proxy_server") or os.environ.get("GEMINI_SEARCH_PROXY_SERVER")
+        if proxy:
+            kwargs["proxy"] = proxy
+
+        browser = None
+        context = None
+        page = None
+        try:
+            launcher = getattr(cloakbrowser, "launch_async", None) or getattr(cloakbrowser, "launch", None)
+            if launcher is None:
+                raise RuntimeError("cloakbrowser package does not expose launch_async or launch")
+            browser = await _maybe_await(launcher(**kwargs))
+            if hasattr(browser, "new_context"):
+                context = await _maybe_await(browser.new_context())
+                page = await _maybe_await(context.new_page())
+            else:
+                page = await _maybe_await(browser.new_page())
+            await _maybe_await(page.goto(url, wait_until="load", timeout=timeout * 1000))
+            title = await _maybe_await(page.title())
+            if selector:
+                text = await _maybe_await(page.locator(selector).inner_text(timeout=timeout * 1000))
+            else:
+                text = await _maybe_await(page.locator("body").inner_text(timeout=timeout * 1000))
+            return ScrapedPage(url=str(getattr(page, "url", url) or url), title=_clean_text(title, 500), text=_clean_text(text))
+        finally:
+            for resource in (context, browser):
+                if resource and hasattr(resource, "close"):
+                    try:
+                        await _maybe_await(resource.close())
+                    except Exception:
+                        pass
+
+    def _ask_scrapling(self, question: str, timeout: int) -> str:
+        search_url = f"https://html.duckduckgo.com/html/?q={quote_plus(question)}"
+        backend = normalize_scrape_backend(self._config.get("scrape_backend"))
+        if backend == "cloakbrowser":
+            backend = "scrapling"
+        page = self._scrape_url(search_url, ".result", timeout, backend)
+        try:
+            result_nodes = self._fetch_with_scrapling(search_url, timeout, backend).css(".result")
+        except Exception:
+            result_nodes = []
+
+        results: list[str] = []
+        for node in list(result_nodes)[:8]:
+            title = _first_text(node, [".result__title ::text", "a::text"])
+            href = ""
+            try:
+                href = str(node.css(".result__a::attr(href)").get() or "")
+            except Exception:
+                href = ""
+            snippet = _first_text(node, [".result__snippet ::text", ".result__body ::text"])
+            if title or href or snippet:
+                absolute = urljoin(search_url, href) if href else ""
+                results.append(f"- {title or absolute}\n  {absolute}\n  {snippet}".rstrip())
+
+        if results:
+            return "Search results:\n" + "\n\n".join(results)
+        if page.text:
+            return "Search results:\n" + page.text
+        raise RuntimeError("Scrapling search returned no usable results")
 
     def _ask_gemini_grounding(self, question: str, timeout: int) -> str:
         model = self._config.get("gemini_model") or os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
@@ -175,8 +372,6 @@ class SearchEngine:
         return text
 
     def _ask_brave(self, question: str, timeout: int) -> str:
-        from urllib.parse import urlencode
-
         params = urlencode({
             "q": question,
             "count": "8",
