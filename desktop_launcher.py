@@ -39,13 +39,14 @@ def _open_browser(port: int) -> None:
 def _prepare_environment() -> None:
     (BASE_DIR / "profiles" / "default").mkdir(parents=True, exist_ok=True)
     (BASE_DIR / "logs").mkdir(parents=True, exist_ok=True)
-    (BASE_DIR / "browsers").mkdir(parents=True, exist_ok=True)
 
-    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(BASE_DIR / "browsers"))
-    os.environ.setdefault("GEMINI_SEARCH_BROWSER_BACKEND", "playwright")
-    os.environ.setdefault("BROWSER_CHANNEL", "chromium")
+    os.environ.setdefault("GEMINI_SEARCH_PROVIDER", "scrapling")
+    os.environ.setdefault("GEMINI_SEARCH_SCRAPE_BACKEND", "scrapling")
+    os.environ.setdefault("WEB_CHAT_PROVIDER", "disabled")
+    os.environ.setdefault("WEB_CHAT_BACKEND", "playwright")
+    os.environ.setdefault("WEB_CHAT_PROFILE_DIR", str(BASE_DIR / "profiles" / "web-chat"))
     os.environ.setdefault("HEADLESS", "0")
-    os.environ.setdefault("GEMINI_SEARCH_USER_DATA_DIR", str(BASE_DIR / "profiles" / "default"))
+    os.environ.setdefault("WEB_CHAT_HEADLESS", "0")
 
 
 def main() -> None:

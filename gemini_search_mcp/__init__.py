@@ -1,9 +1,4 @@
-"""Gemini Search MCP Server - free web search for AI agents.
-
-Exposes Google Search AI Mode as MCP tools. Any MCP-compatible client
-(Claude Desktop, Claude Code, Cursor, etc.) can call these tools to get
-real-time web-grounded answers powered by Gemini - zero API key, unlimited.
-"""
+"""Search and scraping MCP server for AI agents."""
 import asyncio
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
@@ -11,7 +6,7 @@ from mcp.types import ToolAnnotations
 
 from gemini_search.providers import SearchEngine
 
-mcp = FastMCP(name="Gemini Search")
+mcp = FastMCP(name="Search Scraper")
 READONLY = ToolAnnotations(readOnlyHint=True)
 
 _engine: Optional[SearchEngine] = None
@@ -25,20 +20,16 @@ async def _get_engine() -> SearchEngine:
             if _engine is None:
                 import os
                 _engine = SearchEngine()
-                cdp = os.environ.get("CDP_URL")
-                channel = os.environ.get("BROWSER_CHANNEL", "chrome")
-                headless = os.environ.get("HEADLESS", "1") != "0"
-                user_data_dir = os.environ.get("GEMINI_SEARCH_USER_DATA_DIR")
-                browser_backend = os.environ.get("GEMINI_SEARCH_BROWSER_BACKEND")
                 proxy_server = os.environ.get("GEMINI_SEARCH_PROXY_SERVER")
                 await _engine.start(
-                    cdp_url=cdp,
-                    headless=headless,
-                    channel=channel,
-                    user_data_dir=user_data_dir,
-                    browser_backend=browser_backend,
+                    headless=os.environ.get("HEADLESS", "1") != "0",
+                    scrape_backend=os.environ.get("GEMINI_SEARCH_SCRAPE_BACKEND", "scrapling"),
                     proxy_server=proxy_server,
-                    search_provider=os.environ.get("GEMINI_SEARCH_PROVIDER", "google_ai_mode"),
+                    search_provider=os.environ.get("GEMINI_SEARCH_PROVIDER", "scrapling"),
+                    web_chat_provider=os.environ.get("WEB_CHAT_PROVIDER", "disabled"),
+                    web_chat_backend=os.environ.get("WEB_CHAT_BACKEND", "playwright"),
+                    web_chat_headless=os.environ.get("WEB_CHAT_HEADLESS", "0") != "0",
+                    web_chat_profile_dir=os.environ.get("WEB_CHAT_PROFILE_DIR"),
                     gemini_api_key=os.environ.get("GEMINI_API_KEY"),
                     gemini_model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
                     brave_api_key=os.environ.get("BRAVE_API_KEY"),
@@ -52,24 +43,15 @@ async def _get_engine() -> SearchEngine:
 async def web_search(
     query: str,
 ) -> str:
-    """Search the web using Google AI Mode and get a synthesized answer with sources.
-
-    Uses Google Search's AI Mode (powered by Gemini) to search the web in
-    real-time and return a comprehensive, grounded answer. Results include
-    information from current web pages, news, and data.
-
-    This is equivalent to using Google Search's "AI Mode" tab - the AI reads
-    multiple web sources and synthesizes an answer, similar to Perplexity or
-    Grok's web search, but powered by Google's search index.
+    """Search the web and return current results.
 
     Args:
-        query: Search query or question. Can be anything you'd type into Google.
+        query: Search query or question.
                Examples: "latest news about AI regulation", "Bitcoin price today",
                "how does mRNA vaccine work", "Python asyncio best practices 2026"
 
     Returns:
-        A synthesized answer based on real-time web search results.
-        The answer is grounded in actual web content found by Google.
+        Current search results or an API-grounded answer depending on configuration.
     """
     engine = await _get_engine()
     return await engine.ask(query)
@@ -79,25 +61,40 @@ async def web_search(
 async def ask(
     prompt: str,
 ) -> str:
-    """Ask Google AI Mode any question and get an AI-generated answer.
-
-    Similar to web_search but intended for general questions that may or may
-    not require web search. Google AI Mode will automatically decide whether
-    to search the web or answer from its training data.
+    """Ask the configured web chat provider, or fall back to search.
 
     Args:
-        prompt: Any question or instruction. Google AI Mode will search the web
-                if needed and synthesize an answer.
+        prompt: Any question for the configured model website.
 
     Returns:
-        AI-generated answer, potentially grounded in web search results.
+        The latest model answer from the website, or search results when web chat is disabled.
     """
     engine = await _get_engine()
-    return await engine.ask(prompt)
+    return await engine.chat(prompt)
+
+
+@mcp.tool(annotations=READONLY)
+async def scrape_url(
+    url: str,
+    selector: str = "",
+    timeout_ms: int = 45000,
+) -> str:
+    """Fetch a web page with Scrapling and return readable text.
+
+    Args:
+        url: HTTP or HTTPS URL to fetch.
+        selector: Optional CSS selector. When omitted, main/article/body text is returned.
+        timeout_ms: Fetch timeout in milliseconds.
+
+    Returns:
+        Page title and extracted text.
+    """
+    engine = await _get_engine()
+    return await engine.scrape(url, selector or None, timeout_ms=timeout_ms)
 
 
 async def _shutdown_engine() -> None:
-    """Close browser and HTTP resources owned by the MCP process."""
+    """Close resources owned by the MCP process."""
     global _engine
     if _engine is not None:
         await _engine.stop()
