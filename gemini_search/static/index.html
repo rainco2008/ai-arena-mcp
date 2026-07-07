@@ -3,130 +3,217 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Search Scraper MCP Console</title>
+    <title>ContentPilot</title>
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
-    <main class="shell">
-      <section class="topbar">
-        <div>
-          <h1>Search Scraper MCP Console</h1>
-          <p id="statusText">Loading...</p>
-        </div>
-        <button id="refreshBtn" type="button">Refresh</button>
-      </section>
-
-      <section class="grid">
-        <form id="runtimeForm" class="panel">
-          <h2>Runtime</h2>
-          <label>
-            Search provider
-            <select name="search_provider">
-              <option value="scrapling">Scrapling HTML search</option>
-              <option value="gemini_grounding">Gemini + Google Search grounding</option>
-              <option value="brave">Brave Search</option>
-              <option value="tavily">Tavily</option>
-            </select>
-          </label>
-          <label>
-            Gemini API Key
-            <input name="gemini_api_key" type="password" autocomplete="off" placeholder="GEMINI_API_KEY">
-          </label>
-          <label>
-            Gemini Model
-            <input name="gemini_model" placeholder="gemini-2.5-flash">
-          </label>
-          <label>
-            Brave API Key
-            <input name="brave_api_key" type="password" autocomplete="off" placeholder="BRAVE_API_KEY">
-          </label>
-          <label>
-            Tavily API Key
-            <input name="tavily_api_key" type="password" autocomplete="off" placeholder="TAVILY_API_KEY">
-          </label>
-          <label>
-            Tavily Search Depth
-            <select name="tavily_search_depth">
-              <option value="basic">basic</option>
-              <option value="advanced">advanced</option>
-            </select>
-          </label>
-
-          <h2>Scraping</h2>
-          <label>
-            Backend
-            <select name="scrape_backend">
-              <option value="scrapling">scrapling</option>
-              <option value="scrapling_chromium">scrapling chromium</option>
-              <option value="scrapling_stealthy">scrapling stealthy</option>
-              <option value="cloakbrowser">cloakbrowser</option>
-            </select>
-          </label>
-          <label class="check">
-            <input name="headless" type="checkbox">
-            <span>Headless browser scraping</span>
-          </label>
-          <label>
-            Proxy
-            <input name="proxy_server" placeholder="socks5://127.0.0.1:7897">
-          </label>
-
-          <h2>Web Chat</h2>
-          <label>
-            Provider for ask
-            <select name="web_chat_provider">
-              <option value="disabled">disabled</option>
-              <option value="deepseek">DeepSeek website</option>
-              <option value="chatgpt">ChatGPT website</option>
-              <option value="gemini">Gemini website</option>
-            </select>
-          </label>
-          <label>
-            Browser backend
-            <select name="web_chat_backend">
-              <option value="playwright">playwright</option>
-              <option value="cloakbrowser">cloakbrowser</option>
-            </select>
-          </label>
-          <label class="check">
-            <input name="web_chat_headless" type="checkbox">
-            <span>Headless web chat</span>
-          </label>
-          <label>
-            Profile directory
-            <input name="web_chat_profile_dir" placeholder="profiles/web-chat/deepseek">
-          </label>
-          <div class="actions">
-            <button type="submit">Apply and restart</button>
-            <button id="restartBtn" type="button">Restart only</button>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">CP</div>
+          <div>
+            <strong>ContentPilot</strong>
+            <span>Resource Operations</span>
           </div>
-        </form>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="overview">Overview</button>
+          <button class="nav-item" data-view="crawl">Acquisition</button>
+          <button class="nav-item" data-view="topics">Topics</button>
+          <button class="nav-item" data-view="assets">Research Assets</button>
+          <button class="nav-item" data-view="content">Content Pipeline</button>
+          <button class="nav-item" data-view="governance">Review & Publish</button>
+          <button class="nav-item" data-view="workflows">n8n Workflows</button>
+          <button class="nav-item" data-view="runtime">Runtime Settings</button>
+          <button class="nav-item" data-view="test">API Test Bench</button>
+        </nav>
+      </aside>
 
-        <section class="panel">
-          <h2>Test Request</h2>
-          <label>
-            Prompt
-            <textarea id="promptInput" rows="8">latest important AI news today</textarea>
-          </label>
-          <label>
-            Timeout milliseconds
-            <input id="timeoutInput" type="number" min="1000" step="1000" value="45000">
-          </label>
-          <div class="actions">
-            <button id="testBtn" type="button">Send test</button>
-            <button id="modelsBtn" type="button">Check models</button>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle">Overview</h1>
+            <p id="statusText">Loading runtime and resource state...</p>
+          </div>
+          <div class="top-actions">
+            <button id="refreshBtn" type="button" class="secondary">Refresh</button>
+          </div>
+        </header>
+
+        <section id="view-overview" class="view active">
+          <div class="metric-grid" id="metricGrid"></div>
+          <div class="split">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Recent Crawl Runs</h2>
+              </div>
+              <div id="recentRunsTable"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Operational Tasks</h2>
+              </div>
+              <div class="task-grid">
+                <button data-task="init-db">Initialize DB</button>
+                <button data-task="discover">Seed Topics</button>
+                <button data-task="research">Research Next Topic</button>
+                <button data-task="draft">Generate Draft</button>
+                <button data-task="quality-gate">Run Quality Gate</button>
+                <button data-task="approval-router">Route Approvals</button>
+              </div>
+            </section>
           </div>
         </section>
-      </section>
 
-      <section class="panel output-panel">
-        <div class="output-head">
-          <h2>Output</h2>
-          <span id="elapsedText"></span>
-        </div>
-        <pre id="output"></pre>
-      </section>
-    </main>
+        <section id="view-crawl" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Run Content Acquisition</h2>
+            </div>
+            <div class="inline-form">
+              <label>
+                Main domain URL
+                <input id="crawlUrlInput" placeholder="https://example.com">
+              </label>
+              <label>
+                Discover limit
+                <input id="discoverLimitInput" type="number" min="1" value="200">
+              </label>
+              <label>
+                Process limit
+                <input id="processLimitInput" type="number" min="1" value="20">
+              </label>
+              <div class="actions end">
+                <button data-task="crawl-discover">Discover URLs</button>
+                <button data-task="crawl-process">Process Queue</button>
+                <button data-task="crawl-run">Run Both</button>
+              </div>
+            </div>
+          </section>
+          <div class="split">
+            <section class="panel"><h2>Sites</h2><div id="sitesTable"></div></section>
+            <section class="panel"><h2>Pages</h2><div id="pagesTable"></div></section>
+          </div>
+          <section class="panel"><h2>URL Queue</h2><div id="urlsTable"></div></section>
+        </section>
+
+        <section id="view-topics" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Seed Topic Discovery</h2>
+            </div>
+            <div class="inline-form two">
+              <label>
+                Seed keywords
+                <input id="seedInput" value="AI内容工厂,n8n自动化,MCP工作流">
+              </label>
+              <div class="actions end"><button data-task="discover">Create Topics</button></div>
+            </div>
+          </section>
+          <section class="panel"><h2>Topic Pool</h2><div id="topicsTable"></div></section>
+        </section>
+
+        <section id="view-assets" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Research Assets</h2>
+              <button data-task="research">Research Next Topic</button>
+            </div>
+            <div id="assetsTable"></div>
+          </section>
+        </section>
+
+        <section id="view-content" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Content Items</h2>
+              <div class="actions">
+                <button data-task="draft">Generate Draft</button>
+                <button data-task="quality-gate">Quality Gate</button>
+              </div>
+            </div>
+            <div id="contentTable"></div>
+          </section>
+        </section>
+
+        <section id="view-governance" class="view">
+          <div class="split">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Review Records</h2>
+                <button data-task="approval-router">Route Approvals</button>
+              </div>
+              <div id="reviewsTable"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Publications</h2>
+                <div class="actions">
+                  <button data-task="publish">Publish Approved</button>
+                  <button data-task="metrics-feedback">Collect Metrics</button>
+                </div>
+              </div>
+              <div id="publicationsTable"></div>
+            </section>
+          </div>
+          <section class="panel"><h2>Performance Metrics</h2><div id="metricsTable"></div></section>
+        </section>
+
+        <section id="view-workflows" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Imported Workflow Definitions</h2>
+            </div>
+            <div id="workflowsTable"></div>
+          </section>
+        </section>
+
+        <section id="view-runtime" class="view">
+          <form id="runtimeForm" class="panel form-grid">
+            <h2>Search Runtime</h2>
+            <label>Search provider<select name="search_provider"><option value="scrapling">Scrapling HTML search</option><option value="gemini_grounding">Gemini + Google Search grounding</option><option value="brave">Brave Search</option><option value="tavily">Tavily</option></select></label>
+            <label>Gemini API Key<input name="gemini_api_key" type="password" autocomplete="off" placeholder="GEMINI_API_KEY"></label>
+            <label>Gemini Model<input name="gemini_model" placeholder="gemini-2.5-flash"></label>
+            <label>Brave API Key<input name="brave_api_key" type="password" autocomplete="off" placeholder="BRAVE_API_KEY"></label>
+            <label>Tavily API Key<input name="tavily_api_key" type="password" autocomplete="off" placeholder="TAVILY_API_KEY"></label>
+            <label>Tavily Search Depth<select name="tavily_search_depth"><option value="basic">basic</option><option value="advanced">advanced</option></select></label>
+            <h2>Scraping</h2>
+            <label>Backend<select name="scrape_backend"><option value="scrapling">scrapling</option><option value="scrapling_chromium">scrapling chromium</option><option value="scrapling_stealthy">scrapling stealthy</option><option value="cloakbrowser">cloakbrowser</option></select></label>
+            <label class="check"><input name="headless" type="checkbox"><span>Headless browser scraping</span></label>
+            <label>Proxy<input name="proxy_server" placeholder="socks5://127.0.0.1:7897"></label>
+            <h2>Web Chat</h2>
+            <label>Provider for ask<select name="web_chat_provider"><option value="disabled">disabled</option><option value="deepseek">DeepSeek website</option><option value="chatgpt">ChatGPT website</option><option value="gemini">Gemini website</option></select></label>
+            <label>Browser backend<select name="web_chat_backend"><option value="playwright">playwright</option><option value="cloakbrowser">cloakbrowser</option></select></label>
+            <label class="check"><input name="web_chat_headless" type="checkbox"><span>Headless web chat</span></label>
+            <label>Profile directory<input name="web_chat_profile_dir" placeholder="profiles/web-chat/deepseek"></label>
+            <div class="actions">
+              <button type="submit">Apply and restart</button>
+              <button id="restartBtn" type="button" class="secondary">Restart only</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="view-test" class="view">
+          <section class="panel">
+            <h2>Test Request</h2>
+            <label>Prompt<textarea id="promptInput" rows="8">latest important AI news today</textarea></label>
+            <label>Timeout milliseconds<input id="timeoutInput" type="number" min="1000" step="1000" value="45000"></label>
+            <div class="actions">
+              <button id="testBtn" type="button">Send test</button>
+              <button id="modelsBtn" type="button" class="secondary">Check models</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="panel output-panel">
+          <div class="output-head">
+            <h2>Output</h2>
+            <span id="elapsedText"></span>
+          </div>
+          <pre id="output"></pre>
+        </section>
+      </main>
+    </div>
     <script src="/static/app.js"></script>
   </body>
 </html>

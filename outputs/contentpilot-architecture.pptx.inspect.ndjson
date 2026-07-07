@@ -1,0 +1,35 @@
+{"kind":"deck","id":"pr/fne7gj","name":"Deck"}
+{"kind":"layout","layoutId":"e4cfbeed-c07f-449c-b1de-df69cdef9c1a","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"da00cd7b-e75d-49d4-80e5-4c713576ae5a","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/rjl60l","slide":1,"title":"ContentPilot 架构关系","textShapes":20}
+{"kind":"textbox","id":"sh/cj6tovah","slide":1,"name":"title","text":"ContentPilot 架构关系","textPreview":"ContentPilot 架构关系","textChars":17,"textLines":1,"bbox":[54,34,520,58]}
+{"kind":"textbox","id":"sh/nyd0z610","slide":1,"name":"subtitle","text":"核心是后台管理、资源元数据、采集任务、清洗与发布状态；n8n 负责自动化编排，不替代产品后台。","textPreview":"核心是后台管理、资源元数据、采集任务、清洗与发布状态；n8n 负责自动化编排，不替代产品后台。","textChars":47,"textLines":1,"bbox":[56,88,875,38]}
+{"kind":"textbox","id":"sh/udg7adsj","slide":1,"name":"user-admin","text":"用户 / 管理员\n配置资源、查看进度、触发流程","textPreview":"用户 / 管理员 | 配置资源、查看进度、触发流程","textChars":23,"textLines":2,"bbox":[54,255,178,92]}
+{"kind":"textbox","id":"sh/5gbq1ory","slide":1,"name":"core-system","text":"ContentPilot 主系统","textPreview":"ContentPilot 主系统","textChars":16,"textLines":1,"bbox":[280,142,660,452]}
+{"kind":"textbox","id":"sh/cvixczed","slide":1,"name":"next-admin","text":"Next.js 后台管理\n资源配置 / 设置 / 任务面板","textPreview":"Next.js 后台管理 | 资源配置 / 设置 / 任务面板","textChars":29,"textLines":2,"bbox":[326,218,194,86]}
+{"kind":"textbox","id":"sh/nap4r65w","slide":1,"name":"postgres-pgvector","text":"Postgres + pgvector\n资源元数据 / 任务 / 向量索引","textPreview":"Postgres + pgvector | 资源元数据 / 任务 / 向量索引","textChars":37,"textLines":2,"bbox":[681,218,212,86]}
+{"kind":"textbox","id":"sh/upwb2hwf","slide":1,"name":"fastapi","text":"Python FastAPI\n内部采集与任务控制接口","textPreview":"Python FastAPI | 内部采集与任务控制接口","textChars":26,"textLines":2,"bbox":[326,397,194,86]}
+{"kind":"textbox","id":"sh/1orytsvu","slide":1,"name":"python-worker","text":"Python Worker / CLI\n抓取 / 清洗 / 摘要 / 发布","textPreview":"Python Worker / CLI | 抓取 / 清洗 / 摘要 / 发布","textChars":37,"textLines":2,"bbox":[557,397,194,86]}
+{"kind":"textbox","id":"sh/c7u54zid","slide":1,"name":"task-center","text":"任务中心\nresource_tasks / task_logs","textPreview":"任务中心 | resource_tasks / task_logs","textChars":31,"textLines":2,"bbox":[681,506,212,70]}
+{"kind":"textbox","id":"sh/6xkf6dcb","slide":1,"name":"automation-layer","text":"自动化增强层","textPreview":"自动化增强层","textChars":6,"textLines":1,"bbox":[987,179,239,236]}
+{"kind":"textbox","id":"sh/zed8v6ps","slide":1,"name":"n8n","text":"n8n\n定时 / 编排 / Webhook / 外部连接","textPreview":"n8n | 定时 / 编排 / Webhook / 外部连接","textChars":28,"textLines":2,"bbox":[1021,257,170,82]}
+{"kind":"textbox","id":"sh/oza1gvy9","slide":1,"name":"external-systems","text":"外部系统\nCMS / Email / Slack\nWebhook","textPreview":"外部系统 | CMS / Email / Slack | Webhook","textChars":32,"textLines":3,"bbox":[1021,353,170,62]}
+{"kind":"textbox","id":"sh/hk3q5o7q","slide":1,"name":"integration-layer","text":"可选集成层","textPreview":"可选集成层","textChars":5,"textLines":1,"bbox":[987,468,239,119]}
+{"kind":"textbox","id":"sh/65wjudg7","slide":1,"name":"mcp-api","text":"MCP / OpenAI API\n给上层应用或 Agent\n调用","textPreview":"MCP / OpenAI API | 给上层应用或 Agent | 调用","textChars":32,"textLines":3,"bbox":[1021,518,170,58]}
+{"kind":"shape","id":"sh/zqtcj6to","slide":1,"bbox":[232,261,94,40]}
+{"kind":"shape","id":"sh/obm58z25","slide":1,"bbox":[520,261,161,0]}
+{"kind":"shape","id":"sh/hwfyxobm","slide":1,"bbox":[423,304,0,93]}
+{"kind":"shape","id":"sh/a9w3m94f","slide":1,"bbox":[520,440,37,0]}
+{"kind":"shape","id":"sh/zupwb2hw","slide":1,"bbox":[654,304,133,93]}
+{"kind":"shape","id":"sh/b6xkf6dc","slide":1,"bbox":[681,440,70,101]}
+{"kind":"shape","id":"sh/il0rqd4v","slide":1,"bbox":[787,304,0,202]}
+{"kind":"shape","id":"sh/tcj6tova","slide":1,"bbox":[520,298,501,142]}
+{"kind":"shape","id":"sh/0rqd4vmt","slide":1,"bbox":[1106,339,0,14]}
+{"kind":"shape","id":"sh/byhgn29g","slide":1,"bbox":[520,440,501,107]}
+{"kind":"textbox","id":"sh/idonyd0z","slide":1,"name":"principle-1","text":"产品边界","textPreview":"产品边界","textChars":4,"textLines":1,"bbox":[56,622,140,22]}
+{"kind":"textbox","id":"sh/t47y1kre","slide":1,"name":"principle-1-text","text":"后台、数据库、资源模型、任务状态属于 ContentPilot。","textPreview":"后台、数据库、资源模型、任务状态属于 ContentPilot。","textChars":32,"textLines":1,"bbox":[56,648,470,28]}
+{"kind":"textbox","id":"sh/0je9cvix","slide":1,"name":"principle-2","text":"n8n 边界","textPreview":"n8n 边界","textChars":6,"textLines":1,"bbox":[542,622,130,22]}
+{"kind":"textbox","id":"sh/bulwval8","slide":1,"name":"principle-2-text","text":"n8n 只负责编排、定时和连接外部系统，不承载核心后台。","textPreview":"n8n 只负责编排、定时和连接外部系统，不承载核心后台。","textChars":28,"textLines":1,"bbox":[542,648,465,28]}
+{"kind":"textbox","id":"sh/i9s36hcr","slide":1,"name":"principle-3","text":"端口策略","textPreview":"端口策略","textChars":4,"textLines":1,"bbox":[1018,622,130,22]}
+{"kind":"textbox","id":"sh/w3m94fu1","slide":1,"name":"principle-3-text","text":"对外优先保留 Next.js 后台入口；Python API 可作为本机或容器内服务。","textPreview":"对外优先保留 Next.js 后台入口；Python API 可作为本机或容器内服务。","textChars":43,"textLines":1,"bbox":[1018,648,210,48]}
+{"kind":"notes","id":"nt/rjl60l","slide":1,"text":""}

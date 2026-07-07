@@ -1,0 +1,60 @@
+{
+  "name": "Content Crawl - 02 Fetch Process Embed",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-crawl/process",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-content-crawl-process",
+      "name": "Webhook - Main Domain",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "=scripts\\run_content_factory_task.cmd crawl-process \"{{$json.body.base_url || $json.body.url || $json.query.base_url || $json.query.url}}\" --limit {{$json.body.limit || $json.query.limit || 20}} --trigger n8n-webhook"
+      },
+      "id": "execute-crawl-process",
+      "name": "Fetch HTML Process Markdown Summary Vector",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [300, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.parse($json.stdout || '{}') }}"
+      },
+      "id": "respond-crawl-process",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "content": "POST a JSON body with only base_url, for example {\"base_url\":\"https://example.com\"}. The workflow fetches queued internal URLs, stores raw HTML, converts Markdown, summarizes, and writes a summary vector."
+      },
+      "id": "note-crawl-process",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -200]
+    }
+  ],
+  "connections": {
+    "Webhook - Main Domain": {
+      "main": [[{"node": "Fetch HTML Process Markdown Summary Vector", "type": "main", "index": 0}]]
+    },
+    "Fetch HTML Process Markdown Summary Vector": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

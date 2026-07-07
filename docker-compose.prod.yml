@@ -1,5 +1,5 @@
 services:
-  gemini-search:
+  contentpilot:
     build: .
     restart: unless-stopped
     shm_size: "2gb"
@@ -11,6 +11,8 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      CONTENTPILOT_DATABASE_URL: ${CONTENTPILOT_DATABASE_URL:-postgresql://postgres:Postgres2024%40%23@192.168.0.46:5433/contentpilot}
+      CONTENT_FACTORY_DATABASE_URL: ${CONTENT_FACTORY_DATABASE_URL:-postgresql://postgres:Postgres2024%40%23@192.168.0.46:5433/contentpilot}
       HEADLESS: "1"
       GEMINI_SEARCH_PROVIDER: ${GEMINI_SEARCH_PROVIDER:-scrapling}
       GEMINI_SEARCH_SCRAPE_BACKEND: ${GEMINI_SEARCH_SCRAPE_BACKEND:-scrapling}
@@ -26,6 +28,40 @@ services:
       TAVILY_SEARCH_DEPTH: ${TAVILY_SEARCH_DEPTH:-basic}
     volumes:
       - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  contentpilot-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      CONTENTPILOT_DATABASE_URL: ${CONTENTPILOT_DATABASE_URL:-postgresql://postgres:Postgres2024%40%23@192.168.0.46:5433/contentpilot}
+      CONTENTPILOT_API_URL: http://contentpilot:8080
+      CONTENTPILOT_ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      N8N_API_URL: http://n8n:5678
+      N8N_WEB_URL: ${N8N_WEB_URL:-https://n8n.${DOMAIN}}
+      NODE_ENV: production
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      contentpilot:
+        condition: service_healthy
+      n8n:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   n8n:
     image: docker.n8n.io/n8nio/n8n
@@ -41,35 +77,26 @@ services:
       N8N_PORT: "5678"
       N8N_PROTOCOL: ${N8N_PROTOCOL:-https}
       WEBHOOK_URL: ${N8N_WEBHOOK_URL:-https://n8n.${DOMAIN}/}
+      CONTENTPILOT_DATABASE_URL: ${CONTENTPILOT_DATABASE_URL:-postgresql://postgres:Postgres2024%40%23@192.168.0.46:5433/contentpilot}
+      CONTENT_FACTORY_DATABASE_URL: ${CONTENT_FACTORY_DATABASE_URL:-postgresql://postgres:Postgres2024%40%23@192.168.0.46:5433/contentpilot}
     volumes:
       - n8n-data:/home/node/.n8n
       - ./data:/data
     depends_on:
-      - gemini-search
+      - contentpilot
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
-  n8n-mcp:
-    image: ghcr.io/czlonkowski/n8n-mcp:latest
-    pull_policy: always
-    restart: unless-stopped
-    expose:
-      - "3000"
-    environment:
-      N8N_MODE: "true"
-      MCP_MODE: "http"
-      N8N_API_URL: ${N8N_API_URL:-http://n8n:5678}
-      N8N_API_KEY: ${N8N_API_KEY:-}
-      WEBHOOK_SECURITY_MODE: ${N8N_MCP_WEBHOOK_SECURITY_MODE:-permissive}
-      MCP_AUTH_TOKEN: ${N8N_MCP_AUTH_TOKEN}
-      AUTH_TOKEN: ${N8N_MCP_AUTH_TOKEN}
-      PORT: "3000"
-      LOG_LEVEL: ${N8N_MCP_LOG_LEVEL:-info}
-    depends_on:
-      - n8n
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on:
-      - gemini-search
+      contentpilot-web:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"

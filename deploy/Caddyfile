@@ -11,7 +11,7 @@
 		Referrer-Policy "no-referrer"
 	}
 
-	reverse_proxy gemini-search:8080
+	reverse_proxy contentpilot-web:8080
 }
 
 {$N8N_DOMAIN} {

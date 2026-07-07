@@ -1,71 +1,44 @@
 # n8n Local Development
 
-This project runs n8n and n8n-mcp through Docker Compose.
+This project runs n8n through Docker Compose.
 
 ## Services
 
 | Service | URL | Purpose |
 | --- | --- | --- |
-| `gemini-search` | `http://localhost:8080` | Search, scraping, and OpenAI-compatible API |
-| `n8n` | `http://localhost:5678` | Workflow builder and scheduler |
-| `n8n-mcp` | `http://localhost:3000/mcp` | MCP HTTP endpoint for n8n workflow design tools |
+| `contentpilot-web` | `http://localhost:8080` | ContentPilot Next.js admin and proxied API paths |
+| `contentpilot` | `http://contentpilot:8080` | Internal Python search, scraping, and task API |
+| `n8n` | `http://n8n:5678` | Internal workflow builder and scheduler |
 
 ## Start
 
 ```powershell
-docker compose pull n8n n8n-mcp
+docker compose pull n8n
 docker compose up -d --build
 ```
 
-Open n8n:
+Default Compose usage exposes only ContentPilot on `localhost:8080`. Open:
 
 ```text
-http://localhost:5678
+http://localhost:8080
 ```
 
-The local n8n-mcp auth token defaults to:
-
-```text
-local-dev-n8n-mcp-token-change-me-123456
-```
-
-For real use, set your own token before starting:
-
-```powershell
-$env:N8N_MCP_AUTH_TOKEN = "replace-with-a-random-32-plus-character-token"
-docker compose up -d
-```
-
-## Connect n8n to n8n-mcp
-
-In an n8n workflow, add the MCP Client Tool node and use:
-
-```text
-Server URL: http://n8n-mcp:3000/mcp
-Auth Token: value of N8N_MCP_AUTH_TOKEN
-Transport: HTTP Streamable / SSE
-```
-
-Use `http://n8n-mcp:3000/mcp` from inside n8n because both containers are on the same Docker Compose network.
+If you need the n8n editor directly during workflow development, run n8n with a temporary port mapping or use the local helper script outside Compose.
 
 ## Connect n8n to this project's API
 
 From inside n8n, call the search/scraping service by Docker service name:
 
 ```text
-http://gemini-search:8080/api/scrape
-http://gemini-search:8080/v1/chat/completions
+http://contentpilot:8080/api/scrape
+http://contentpilot:8080/v1/chat/completions
 ```
 
-The content factory SQLite file is mounted into n8n at:
+ContentPilot data lives in Postgres/pgvector. n8n should call the internal ContentPilot API instead of reading a local SQLite file.
 
-```text
-/data/content_factory.sqlite
-```
+## API key
 
-## API key for n8n-mcp management tools
-
-n8n-mcp documentation and validation tools work without an n8n API key. Workflow management tools require an API key.
+n8n API integrations require an API key.
 
 After first login to n8n:
 
@@ -82,9 +55,7 @@ docker compose up -d
 
 ## Production notes
 
-The production compose exposes n8n through Caddy at `N8N_DOMAIN`.
-
-n8n-mcp is intentionally not public by default. Keep it internal unless you add separate authentication, TLS, and network restrictions.
+The production compose exposes n8n through Caddy at `N8N_DOMAIN`. The ContentPilot web service uses internal `N8N_API_URL=http://n8n:5678` for API calls, and `N8N_WEB_URL` only for the browser-facing editor link.
 
 ## npm fallback
 
@@ -95,17 +66,10 @@ npm install
 npm run n8n
 ```
 
-In another terminal:
-
-```powershell
-npm run n8n:mcp:http
-```
-
-Local URLs:
+Local URLs in npm fallback mode only:
 
 ```text
 n8n: http://localhost:5678
-n8n-mcp: http://localhost:3000/mcp
 ```
 
 ## Local content factory workflows
@@ -126,12 +90,6 @@ Start local n8n:
 
 ```powershell
 .\scripts\run_n8n.cmd
-```
-
-Start n8n-mcp:
-
-```powershell
-.\scripts\run_n8n_mcp_http.cmd
 ```
 
 Initialize the local n8n owner account once:
@@ -164,6 +122,8 @@ Content Factory - 05 Metrics Feedback
 Content Factory - 06 Approval Router
 Content Factory - 07 Publisher
 Content Factory - 08 Document Ingestion
+Content Crawl - 01 Discover URLs
+Content Crawl - 02 Fetch Process Embed
 ```
 
 The workflow commands call:
@@ -184,6 +144,6 @@ Useful direct checks:
 scripts\run_content_factory_task.cmd list-topics --limit 5
 scripts\run_content_factory_task.cmd approval-router --limit 10
 scripts\run_content_factory_task.cmd ingest-document --topic-id <topic-id> --file data\inbox\sample.md
-npm.cmd run n8n:validate-workflows
+scripts\run_content_factory_task.cmd crawl-run https://example.com
 npm.cmd run n8n:index-templates
 ```

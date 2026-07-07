@@ -6,7 +6,7 @@ from mcp.types import ToolAnnotations
 
 from gemini_search.providers import SearchEngine
 
-mcp = FastMCP(name="Search Scraper")
+mcp = FastMCP(name="ContentPilot")
 READONLY = ToolAnnotations(readOnlyHint=True)
 
 _engine: Optional[SearchEngine] = None

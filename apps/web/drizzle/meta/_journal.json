@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1783272213904,
+      "tag": "0000_burly_doomsday",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783272213905,
+      "tag": "0001_contentpilot_schema_alignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783272213906,
+      "tag": "0002_resource_tasks",
+      "breakpoints": true
+    }
+  ]
+}

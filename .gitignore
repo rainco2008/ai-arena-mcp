@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 node_modules/
+.next/
+apps/*/.next/
 .venv/
 .venv-windows-build/
 .pytest_cache/
@@ -22,4 +24,5 @@ data/
 workflows/template-index/
 GeminiSearch.spec
 .codex/
+.tmp/
 *.egg-info/
