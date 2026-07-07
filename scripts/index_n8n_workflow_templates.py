@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,9 @@ def search_index(index_path: Path, query: str, limit: int) -> dict[str, Any]:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
     parser = argparse.ArgumentParser(description="Index/search Zie619 n8n workflow templates")
     parser.add_argument("--source", default=str(DEFAULT_SOURCE))
     parser.add_argument("--index", default=str(DEFAULT_INDEX))

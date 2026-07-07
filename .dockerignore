@@ -1,0 +1,14 @@
+.git
+.next
+apps/web/.next
+node_modules
+apps/web/node_modules
+data
+profiles
+vendor
+.tmp
+*.log
+*.pyc
+__pycache__
+.venv
+.venv-windows-build

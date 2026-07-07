@@ -1,0 +1,1716 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/rjl60l",
+    "id": "rjl60l",
+    "slide": 1,
+    "layoutId": "da00cd7b-e75d-49d4-80e5-4c713576ae5a",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "e4cfbeed-c07f-449c-b1de-df69cdef9c1a",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#F7F9FB",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "da00cd7b-e75d-49d4-80e5-4c713576ae5a",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "e4cfbeed-c07f-449c-b1de-df69cdef9c1a",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "e4cfbeed-c07f-449c-b1de-df69cdef9c1a",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cj6tovah",
+      "id": "1",
+      "name": "title",
+      "bbox": [
+        54,
+        34,
+        520,
+        58
+      ],
+      "geometry": "rect",
+      "text": "ContentPilot 架构关系",
+      "textPreview": "ContentPilot 架构关系",
+      "resolvedFontSize": 36,
+      "resolvedTextStyle": {
+        "fontSize": 36,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "ContentPilot 架构关系"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "ContentPilot 架构关系",
+          "resolvedTextStyle": {
+            "fontSize": 36,
+            "color": "#0F172A",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ContentPilot 架构关系",
+              "fontSize": 36,
+              "color": "#0F172A",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nyd0z610",
+      "id": "2",
+      "name": "subtitle",
+      "bbox": [
+        56,
+        88,
+        875,
+        38
+      ],
+      "geometry": "rect",
+      "text": "核心是后台管理、资源元数据、采集任务、清洗与发布状态；n8n 负责自动化编排，不替代产品后台。",
+      "textPreview": "核心是后台管理、资源元数据、采集任务、清洗与发布状态；n8n 负责自动化编排，不替代产品后台。",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#475569",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "核心是后台管理、资源元数据、采集任务、清洗与发布状态；n8n 负责自动化编排，不替代产品后台。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "核心是后台管理、资源元数据、采集任务、清洗与发布状态；n8n 负责自动化编排，不替代产品后台。",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#475569"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "核心是后台管理、资源元数据、采集任务、清洗与发布状态；n8n 负责自动化编排，不替代产品后台。",
+              "fontSize": 17,
+              "color": "#475569"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/udg7adsj",
+      "id": "3",
+      "name": "user-admin",
+      "bbox": [
+        54,
+        255,
+        178,
+        92
+      ],
+      "geometry": "roundRect",
+      "text": "用户 / 管理员\n配置资源、查看进度、触发流程",
+      "textPreview": "用户 / 管理员 | 配置资源、查看进度、触发流程",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "用户 / 管理员"
+          },
+          {
+            "index": 2,
+            "text": "配置资源、查看进度、"
+          },
+          {
+            "index": 3,
+            "text": "触发流程"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "用户 / 管理员",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "用户 / 管理员",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "配置资源、查看进度、触发流程",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "配置资源、查看进度、触发流程",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#FFFFFF",
+      "lineColor": "#CBD5E1",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5gbq1ory",
+      "id": "4",
+      "name": "core-system",
+      "bbox": [
+        280,
+        142,
+        660,
+        452
+      ],
+      "geometry": "roundRect",
+      "text": "ContentPilot 主系统",
+      "textPreview": "ContentPilot 主系统",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#0F766E",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "ContentPilot 主系统"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "ContentPilot 主系统",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#0F766E",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ContentPilot 主系统",
+              "fontSize": 20,
+              "color": "#0F766E",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#E8F7F4",
+      "lineColor": "#0F766E",
+      "lineWidth": 2
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cvixczed",
+      "id": "5",
+      "name": "next-admin",
+      "bbox": [
+        326,
+        218,
+        194,
+        86
+      ],
+      "geometry": "roundRect",
+      "text": "Next.js 后台管理\n资源配置 / 设置 / 任务面板",
+      "textPreview": "Next.js 后台管理 | 资源配置 / 设置 / 任务面板",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Next.js 后台管理"
+          },
+          {
+            "index": 2,
+            "text": "资源配置 / 设置 /"
+          },
+          {
+            "index": 3,
+            "text": "任务面板"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Next.js 后台管理",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Next.js 后台管理",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "资源配置 / 设置 / 任务面板",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "资源配置 / 设置 / 任务面板",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#FFFFFF",
+      "lineColor": "#0F766E",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nap4r65w",
+      "id": "6",
+      "name": "postgres-pgvector",
+      "bbox": [
+        681,
+        218,
+        212,
+        86
+      ],
+      "geometry": "roundRect",
+      "text": "Postgres + pgvector\n资源元数据 / 任务 / 向量索引",
+      "textPreview": "Postgres + pgvector | 资源元数据 / 任务 / 向量索引",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Postgres + pgvector"
+          },
+          {
+            "index": 2,
+            "text": "资源元数据 / 任务 /"
+          },
+          {
+            "index": 3,
+            "text": "向量索引"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Postgres + pgvector",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Postgres + pgvector",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "资源元数据 / 任务 / 向量索引",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "资源元数据 / 任务 / 向量索引",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#ECFDF5",
+      "lineColor": "#16A34A",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/upwb2hwf",
+      "id": "7",
+      "name": "fastapi",
+      "bbox": [
+        326,
+        397,
+        194,
+        86
+      ],
+      "geometry": "roundRect",
+      "text": "Python FastAPI\n内部采集与任务控制接口",
+      "textPreview": "Python FastAPI | 内部采集与任务控制接口",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Python FastAPI"
+          },
+          {
+            "index": 2,
+            "text": "内部采集与任务控制接"
+          },
+          {
+            "index": 3,
+            "text": "口"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Python FastAPI",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Python FastAPI",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "内部采集与任务控制接口",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "内部采集与任务控制接口",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#EEF2FF",
+      "lineColor": "#4F46E5",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1orytsvu",
+      "id": "8",
+      "name": "python-worker",
+      "bbox": [
+        557,
+        397,
+        194,
+        86
+      ],
+      "geometry": "roundRect",
+      "text": "Python Worker / CLI\n抓取 / 清洗 / 摘要 / 发布",
+      "textPreview": "Python Worker / CLI | 抓取 / 清洗 / 摘要 / 发布",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Python Worker / CLI"
+          },
+          {
+            "index": 2,
+            "text": "抓取 / 清洗 / 摘要 / 发布"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Python Worker / CLI",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Python Worker / CLI",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "抓取 / 清洗 / 摘要 / 发布",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "抓取 / 清洗 / 摘要 / 发布",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#F8FAFC",
+      "lineColor": "#64748B",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/c7u54zid",
+      "id": "9",
+      "name": "task-center",
+      "bbox": [
+        681,
+        506,
+        212,
+        70
+      ],
+      "geometry": "roundRect",
+      "text": "任务中心\nresource_tasks / task_logs",
+      "textPreview": "任务中心 | resource_tasks / task_logs",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "任务中心"
+          },
+          {
+            "index": 2,
+            "text": "resource_tasks / task_logs"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "任务中心",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "任务中心",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "resource_tasks / task_logs",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "resource_tasks / task_logs",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#FFFFFF",
+      "lineColor": "#0F766E",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6xkf6dcb",
+      "id": "10",
+      "name": "automation-layer",
+      "bbox": [
+        987,
+        179,
+        239,
+        236
+      ],
+      "geometry": "roundRect",
+      "text": "自动化增强层",
+      "textPreview": "自动化增强层",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#B45309",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "自动化增强层"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "自动化增强层",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#B45309",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "自动化增强层",
+              "fontSize": 20,
+              "color": "#B45309",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#FFF7ED",
+      "lineColor": "#D97706",
+      "lineWidth": 2
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zed8v6ps",
+      "id": "11",
+      "name": "n8n",
+      "bbox": [
+        1021,
+        257,
+        170,
+        82
+      ],
+      "geometry": "roundRect",
+      "text": "n8n\n定时 / 编排 / Webhook / 外部连接",
+      "textPreview": "n8n | 定时 / 编排 / Webhook / 外部连接",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "n8n"
+          },
+          {
+            "index": 2,
+            "text": "定时 / 编排 /"
+          },
+          {
+            "index": 3,
+            "text": "Webhook / 外部连接"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "n8n",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "n8n",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "定时 / 编排 / Webhook / 外部连接",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "定时 / 编排 / Webhook / 外部连接",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D97706",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/oza1gvy9",
+      "id": "12",
+      "name": "external-systems",
+      "bbox": [
+        1021,
+        353,
+        170,
+        62
+      ],
+      "geometry": "roundRect",
+      "text": "外部系统\nCMS / Email / Slack\nWebhook",
+      "textPreview": "外部系统 | CMS / Email / Slack | Webhook",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "外部系统"
+          },
+          {
+            "index": 2,
+            "text": "CMS / Email / Slack"
+          },
+          {
+            "index": 3,
+            "text": "Webhook"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "外部系统",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "外部系统",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "CMS / Email / Slack",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "CMS / Email / Slack",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "Webhook",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Webhook",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#FFFFFF",
+      "lineColor": "#D97706",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hk3q5o7q",
+      "id": "13",
+      "name": "integration-layer",
+      "bbox": [
+        987,
+        468,
+        239,
+        119
+      ],
+      "geometry": "roundRect",
+      "text": "可选集成层",
+      "textPreview": "可选集成层",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#475569",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "可选集成层"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "可选集成层",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#475569",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "可选集成层",
+              "fontSize": 20,
+              "color": "#475569",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#F1F5F9",
+      "lineColor": "#64748B",
+      "lineWidth": 2
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/65wjudg7",
+      "id": "14",
+      "name": "mcp-api",
+      "bbox": [
+        1021,
+        518,
+        170,
+        58
+      ],
+      "geometry": "roundRect",
+      "text": "MCP / OpenAI API\n给上层应用或 Agent\n调用",
+      "textPreview": "MCP / OpenAI API | 给上层应用或 Agent | 调用",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#0F172A",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "MCP / OpenAI API"
+          },
+          {
+            "index": 2,
+            "text": "给上层应用或 Agent"
+          },
+          {
+            "index": 3,
+            "text": "调用"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "MCP / OpenAI API",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "MCP / OpenAI API",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "给上层应用或 Agent",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "给上层应用或 Agent",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "调用",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#0F172A"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "调用",
+              "fontSize": 16,
+              "color": "#0F172A"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "fillColor": "#FFFFFF",
+      "lineColor": "#64748B",
+      "lineWidth": 1.4
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zqtcj6to",
+      "id": "15",
+      "bbox": [
+        232,
+        261,
+        94,
+        40
+      ],
+      "verticalFlip": true,
+      "geometry": "bentConnector3",
+      "lineColor": "#0F766E",
+      "lineWidth": 2
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/obm58z25",
+      "id": "16",
+      "bbox": [
+        520,
+        261,
+        161,
+        0
+      ],
+      "geometry": "straightConnector1",
+      "lineColor": "#0F766E",
+      "lineWidth": 2
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hwfyxobm",
+      "id": "17",
+      "bbox": [
+        423,
+        304,
+        0,
+        93
+      ],
+      "geometry": "straightConnector1",
+      "lineColor": "#4F46E5",
+      "lineWidth": 2
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a9w3m94f",
+      "id": "18",
+      "bbox": [
+        520,
+        440,
+        37,
+        0
+      ],
+      "geometry": "straightConnector1",
+      "lineColor": "#4F46E5",
+      "lineWidth": 2
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zupwb2hw",
+      "id": "19",
+      "bbox": [
+        654,
+        304,
+        133,
+        93
+      ],
+      "verticalFlip": true,
+      "geometry": "bentConnector4",
+      "lineColor": "#16A34A",
+      "lineWidth": 2
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/b6xkf6dc",
+      "id": "20",
+      "bbox": [
+        681,
+        440,
+        70,
+        101
+      ],
+      "horizontalFlip": true,
+      "geometry": "bentConnector3",
+      "lineColor": "#0F766E",
+      "lineWidth": 2
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/il0rqd4v",
+      "id": "21",
+      "bbox": [
+        787,
+        304,
+        0,
+        202
+      ],
+      "verticalFlip": true,
+      "geometry": "straightConnector1",
+      "lineColor": "#16A34A",
+      "lineWidth": 2
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tcj6tova",
+      "id": "22",
+      "bbox": [
+        520,
+        298,
+        501,
+        142
+      ],
+      "horizontalFlip": true,
+      "geometry": "straightConnector1",
+      "lineColor": "#D97706",
+      "lineWidth": 2
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0rqd4vmt",
+      "id": "23",
+      "bbox": [
+        1106,
+        339,
+        0,
+        14
+      ],
+      "geometry": "straightConnector1",
+      "lineColor": "#D97706",
+      "lineWidth": 2
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/byhgn29g",
+      "id": "24",
+      "bbox": [
+        520,
+        440,
+        501,
+        107
+      ],
+      "horizontalFlip": true,
+      "verticalFlip": true,
+      "geometry": "straightConnector1",
+      "lineColor": "#64748B",
+      "lineWidth": 2
+    },
+    {
+      "order": 25,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/idonyd0z",
+      "id": "25",
+      "name": "principle-1",
+      "bbox": [
+        56,
+        622,
+        140,
+        22
+      ],
+      "geometry": "rect",
+      "text": "产品边界",
+      "textPreview": "产品边界",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#0F766E",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "产品边界"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "产品边界",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#0F766E",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "产品边界",
+              "fontSize": 17,
+              "color": "#0F766E",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 26,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/t47y1kre",
+      "id": "26",
+      "name": "principle-1-text",
+      "bbox": [
+        56,
+        648,
+        470,
+        28
+      ],
+      "geometry": "rect",
+      "text": "后台、数据库、资源模型、任务状态属于 ContentPilot。",
+      "textPreview": "后台、数据库、资源模型、任务状态属于 ContentPilot。",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#475569",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "后台、数据库、资源模型、任务状态属于 ContentPilot。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "后台、数据库、资源模型、任务状态属于 ContentPilot。",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#475569"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "后台、数据库、资源模型、任务状态属于 ContentPilot。",
+              "fontSize": 15,
+              "color": "#475569"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 27,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0je9cvix",
+      "id": "27",
+      "name": "principle-2",
+      "bbox": [
+        542,
+        622,
+        130,
+        22
+      ],
+      "geometry": "rect",
+      "text": "n8n 边界",
+      "textPreview": "n8n 边界",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#B45309",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "n8n 边界"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "n8n 边界",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#B45309",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "n8n 边界",
+              "fontSize": 17,
+              "color": "#B45309",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 28,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/bulwval8",
+      "id": "28",
+      "name": "principle-2-text",
+      "bbox": [
+        542,
+        648,
+        465,
+        28
+      ],
+      "geometry": "rect",
+      "text": "n8n 只负责编排、定时和连接外部系统，不承载核心后台。",
+      "textPreview": "n8n 只负责编排、定时和连接外部系统，不承载核心后台。",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#475569",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "n8n 只负责编排、定时和连接外部系统，不承载核心后台。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "n8n 只负责编排、定时和连接外部系统，不承载核心后台。",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#475569"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "n8n 只负责编排、定时和连接外部系统，不承载核心后台。",
+              "fontSize": 15,
+              "color": "#475569"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 29,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i9s36hcr",
+      "id": "29",
+      "name": "principle-3",
+      "bbox": [
+        1018,
+        622,
+        130,
+        22
+      ],
+      "geometry": "rect",
+      "text": "端口策略",
+      "textPreview": "端口策略",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#475569",
+        "bold": true,
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "端口策略"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "端口策略",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#475569",
+            "bold": true
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "端口策略",
+              "fontSize": 17,
+              "color": "#475569",
+              "bold": true
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 30,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/w3m94fu1",
+      "id": "30",
+      "name": "principle-3-text",
+      "bbox": [
+        1018,
+        648,
+        210,
+        48
+      ],
+      "geometry": "rect",
+      "text": "对外优先保留 Next.js 后台入口；Python API 可作为本机或容器内服务。",
+      "textPreview": "对外优先保留 Next.js 后台入口；Python API 可作为本机或容器内服务。",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#475569",
+        "alignment": "left",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "对外优先保留 Next.js"
+          },
+          {
+            "index": 2,
+            "text": "后台入口；Python API"
+          },
+          {
+            "index": 3,
+            "text": "可作为本机或容器内服务。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "对外优先保留 Next.js 后台入口；Python API 可作为本机或容器内服务。",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#475569"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "对外优先保留 Next.js 后台入口；Python API 可作为本机或容器内服务。",
+              "fontSize": 15,
+              "color": "#475569"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}
